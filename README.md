@@ -274,8 +274,6 @@ cett = contribution.norm() / h_t.norm()          # scalar
 
 ## Feature Engineering — What Goes Into Detection
 
-CETT is the primary signal. The pipeline extends it by running the dataset in two passes — once on **correct (non-hallucinating) prompts** to build a per-neuron CETT baseline, once on **hallucinating prompts** to measure the deviation. This dual-pass approach is what makes the features meaningful rather than just large numbers.
-
 ### Training Data Construction — Consistency Filtering
 Following the H-Neurons paper: for each question, **10 responses are sampled** at non-zero temperature. Only the extremes are kept:
 - **Always correct** — all 10 responses right
@@ -283,53 +281,50 @@ Following the H-Neurons paper: for each question, **10 responses are sampled** a
 
 This removes ambiguous middle-ground examples and produces clean binary labels.
 
-### Baseline Statistics — Correct Prompts
-Computed per neuron across all consistently-correct responses:
+### The Three Per-Prompt Features
 
-| Feature | Description |
+The pipeline computes three values per neuron per prompt. These are the only features used for ML training — they vary per prompt, so they carry actual discriminative information.
+
+First the correct-prompt baseline is computed across all consistently-correct responses. This baseline is then used to compute the z-score at inference time for each prompt.
+
+| Feature | What it is | Varies per prompt? |
+|---|---|---|
+| `CETT_answer` | CETT score over answer tokens for this prompt | Yes |
+| `CETT_other` | CETT score over non-answer tokens for this prompt | Yes |
+| `CETT_zscore` | `(CETT_answer − mean_correct) / std_correct` — how unusual is this vs normal | Yes |
+
+> `CETT_zscore` is the most powerful of the three. A neuron firing at 0.031 is unremarkable if it always fires at 0.029. The same value when the correct baseline is 0.003 ± 0.002 is a 14σ event — that is an H-Neuron.
+
+### How each stage uses these features
+
+```
+                    CETT_answer   CETT_other   CETT_zscore   Static features
+                    ───────────   ──────────   ───────────   ───────────────
+Boruta              ✓             ✓            ✓             ✗
+(4,096 neurons)     ← 3 features × 4,096 neurons = 12,288 columns per prompt →
+
+LightGBM            ✓             ✓            ✓             ✗
+(~80 confirmed)     ← 3 features × ~80 neurons = ~240 columns per prompt →
+
+PaCMAP              ✓             ✗            ✗             ✗
+(~80 confirmed)     ← 1 feature  × ~80 neurons = ~80 dimensions per prompt →
+```
+
+Static features (`w_out_norm`, `weight_rank`, `layer_position`) have **zero variance across prompts** — the same value for a neuron on every single prompt. A zero-variance feature cannot help split hallucinated from correct prompts in any ML model, and cannot add geometric structure to a PaCMAP projection. They are excluded from all three stages.
+
+### Static features — display only
+
+| Feature | Used for |
 |---|---|
-| `cett_answer_correct` | Mean CETT over **answer tokens** during correct responses — the clean baseline |
-| `cett_other_correct` | Mean CETT over **non-answer tokens** during correct responses |
-| `cett_std_correct` | Spread of CETT values — how stable is this neuron on correct responses? |
-| `cett_p95_correct` | 95th percentile CETT — upper bound of normal behavior |
+| `w_out_norm` | Neuron inspector — how large is this neuron's write vector? |
+| `weight_rank_in_layer` | Tie-breaking when two neurons score similarly |
+| `weight_zscore_in_layer` | Highlighting structurally outlier neurons in the UI |
+| `layer_index` | Layer heatmap display |
+| `layer_relative_position` | Showing where in the network the neuron lives |
 
-### Hallucination Statistics — Hallucinating Prompts
-Computed per neuron across all consistently-wrong responses:
+### Why Boruta uses all three features — not just CETT_answer
 
-| Feature | Description |
-|---|---|
-| `cett_answer_halluc` | Mean CETT over **answer tokens** during hallucinations — the key signal |
-| `cett_other_halluc` | Mean CETT over **non-answer tokens** during hallucinations |
-| `cett_std_halluc` | Spread during hallucinations |
-| `cett_p95_halluc` | 95th percentile CETT during hallucinations |
-
-### Contrast Features — The Signal
-Derived by comparing the two CETT distributions:
-
-| Feature | Description |
-|---|---|
-| `cett_answer_delta` | `cett_answer_halluc − cett_answer_correct` — lift on answer tokens during hallucination |
-| `cett_specificity` | `cett_answer_halluc / cett_other_halluc` — does this neuron spike specifically on answers? |
-| `cohen_d` | Effect size between correct and hallucination CETT distributions |
-| `separation_score` | `fraction_fires_halluc − fraction_fires_correct` — Ferrando-style separation |
-| `kl_divergence` | How different are the two CETT distributions overall? |
-
-### Static Neuron Features — Structural Properties
-Fixed per neuron, independent of any prompt:
-
-| Feature | Description |
-|---|---|
-| `w_out_norm` | L2 norm of `W_out[j, :]` — how large is this neuron's write vector? |
-| `weight_rank_in_layer` | Rank of `w_out_norm` among all neurons in the same layer |
-| `weight_zscore_in_layer` | Z-score of `w_out_norm` within the layer — outlier neurons are suspicious |
-| `layer_index` | Which layer this neuron belongs to |
-| `layer_relative_position` | `layer / total_layers` — position in network (0 = early, 1 = late) |
-
-### Why Both Distributions Matter
-
-> A neuron with `cett_answer_halluc = 0.031` is unremarkable if its `cett_answer_correct = 0.029`. The same score when `cett_answer_correct = 0.003` represents a 10× lift on answer tokens — that is an H-Neuron.
-
-Boruta uses these features to reject neurons with no discriminative power before LightGBM sees them. LightGBM then learns interaction patterns — e.g. high `cohen_d` AND high `weight_rank_in_layer` AND high `cett_specificity` — that the original L1 probe on 2 features alone cannot capture.
+A neuron might have a weak `CETT_answer` signal but a strong `CETT_zscore` signal — meaning it fires at normal absolute levels but spikes dramatically relative to its own baseline during hallucination. Using only `CETT_answer` would incorrectly reject it. All three features together give Boruta the most complete picture of each neuron's per-prompt behaviour before making the confirmation decision.
 
 ---
 
