@@ -283,57 +283,79 @@ This removes ambiguous middle-ground examples and produces clean binary labels.
 
 ### The Three Per-Prompt Features
 
-The pipeline computes three values per neuron per prompt. These are the only features used for ML training — they vary per prompt, so they carry actual discriminative information.
+The pipeline computes three values **per neuron per prompt**. These are the only ML features — they vary per prompt so they carry actual discriminative information. Static properties like weight norms are the same for a neuron on every prompt, so they carry zero discriminative power and are excluded from all ML stages.
 
-First the correct-prompt baseline is computed across all consistently-correct responses. This baseline is then used to compute the z-score at inference time for each prompt.
+The correct-prompt baseline (mean and std of `CETT_answer` per neuron) is computed first across all consistently-correct responses. This baseline is what makes `CETT_zscore` meaningful.
 
 | Feature | What it is | Varies per prompt? |
 |---|---|---|
 | `CETT_answer` | CETT score over answer tokens for this prompt | Yes |
 | `CETT_other` | CETT score over non-answer tokens for this prompt | Yes |
-| `CETT_zscore` | `(CETT_answer − mean_correct) / std_correct` — how unusual is this vs normal | Yes |
+| `CETT_zscore` | `(CETT_answer − mean_correct) / std_correct` — how unusual is this vs the neuron's normal behaviour | Yes |
 
 > `CETT_zscore` is the most powerful of the three. A neuron firing at 0.031 is unremarkable if it always fires at 0.029. The same value when the correct baseline is 0.003 ± 0.002 is a 14σ event — that is an H-Neuron.
 
-### How each stage uses these features
+---
+
+### Worked Example — 1,000 prompts, 4,096 neurons
+
+> In practice numbers are much larger — tens of thousands of prompts, thousands of neurons per layer across multiple layers. The example uses small numbers for clarity.
+
+**The raw matrix — computed once, cached to HDF5**
+
+Each row is one prompt. Each neuron occupies 3 consecutive columns. Label = 1 (hallucinated) or 0 (correct).
 
 ```
-                    CETT_answer   CETT_other   CETT_zscore   Static features
-                    ───────────   ──────────   ───────────   ───────────────
-Boruta              ✓             ✓            ✓             ✗
-(4,096 neurons)     ← 3 features × 4,096 neurons = 12,288 columns per prompt →
-
-LightGBM            ✓             ✓            ✓             ✗
-(~80 confirmed)     ← 3 features × ~80 neurons = ~240 columns per prompt →
-
-PaCMAP              ✓             ✗            ✗             ✗
-(~80 confirmed)     ← 1 feature  × ~80 neurons = ~80 dimensions per prompt →
+         │←─────────── neuron 0 ───────────→│←─────────── neuron 1 ───────────→│ ... │←──────── neuron 4095 ───────────→│
+         │ CETT_ans  CETT_other  CETT_zscore │ CETT_ans  CETT_other  CETT_zscore │     │ CETT_ans  CETT_other  CETT_zscore │ label
+─────────┼──────────────────────────────────┼──────────────────────────────────┼─────┼──────────────────────────────────┼──────
+prompt_1 │  0.031      0.012       3.21     │  0.002      0.001       0.11     │ ... │  0.001      0.000       0.08     │   1
+prompt_2 │  0.028      0.011       2.98     │  0.003      0.001       0.15     │ ... │  0.001      0.000       0.07     │   1
+prompt_3 │  0.004      0.009      -0.21     │  0.002      0.001       0.09     │ ... │  0.044      0.031       8.92     │   0
+  ...
 ```
 
-Static features (`w_out_norm`, `weight_rank`, `layer_position`) have **zero variance across prompts** — the same value for a neuron on every single prompt. A zero-variance feature cannot help split hallucinated from correct prompts in any ML model, and cannot add geometric structure to a PaCMAP projection. They are excluded from all three stages.
+```
+Total: 1,000 rows  ×  (4,096 neurons × 3 features)  =  1,000 × 12,288 matrix
+```
+
+---
+
+### Pipeline Stages
+
+| Stage | Rows | Columns | What it does | Why |
+|---|---|---|---|---|
+| **Boruta** | 1,000 prompts — each labeled hallucinated (1) or correct (0) | 4,096 neurons × 3 features = **12,288 columns** | Creates shuffled shadow copies of every column. Trains Random Forest on real + shadow together. Rejects any neuron whose 3 features cannot beat their own shuffled copies at predicting the label | Eliminates pure noise neurons before any expensive ML. Reduces 4,096 neurons to ~80 confirmed — those that carry any real hallucination signal |
+| **Delta filter** | One value per confirmed neuron — no matrix | `mean(CETT_answer on halluc rows) − mean(CETT_answer on correct rows)` | Directly computes direction for each of the ~80 confirmed neurons. Keeps only neurons where delta > 0 | We have the labels so we can see directly which neurons fire more during hallucination. Neurons with delta < 0 fire more during correct responses — suppressing them would make hallucination worse |
+| **LightGBM** | 1,000 prompts — same rows and labels as Boruta | ~40 H-Neuron candidates × 3 features = **~120 columns** | Trains gradient-boosted classifier to predict hallucination label. SHAP values give signed importance per neuron | Delta filter gives direction but not importance or interactions. LightGBM ranks H-Neurons by unique contribution and detects which neurons always fire together (see below) |
+| **PaCMAP** | 1,000 prompts — same rows as LightGBM | ~40 H-Neuron candidates × 3 features = **~120 columns → compressed to 2D** | Projects the same 120-dimensional space into a 2D scatter plot. Each point = one prompt, red = hallucinated, blue = correct | Statistics treat all hallucinations as one group. PaCMAP reveals sub-clusters — specific types of hallucination driven by different neurons — that the researcher can lasso-select and investigate |
+
+---
+
+### Correlated Neurons — Suppress One, Not Both
+
+LightGBM detects when two H-Neurons always fire together — whenever neuron 847 fires, neuron 1203 fires too, and vice versa. SHAP assigns near-full importance to one and near-zero to the other, because they carry redundant signal.
+
+```
+Neuron 847   SHAP = 0.041   ← carries the signal
+Neuron 1203  SHAP = 0.003   ← redundant — fires with 847 but adds nothing unique
+```
+
+In this case suppressing **only neuron 847** achieves the same reduction in hallucination as suppressing both. This is important — every unnecessary weight edit risks degrading general capability. LightGBM's redundancy detection minimises the number of suppressions needed.
+
+---
 
 ### Static features — display only
 
+These have zero variance across prompts — the same value for a neuron regardless of which prompt is being processed. They cannot help any ML stage split hallucinated from correct prompts and are excluded from all training. They are shown in the neuron inspector UI only.
+
 | Feature | Used for |
 |---|---|
-| `w_out_norm` | Neuron inspector — how large is this neuron's write vector? |
+| `w_out_norm` | How large is this neuron's write vector into the residual stream |
 | `weight_rank_in_layer` | Tie-breaking when two neurons score similarly |
-| `weight_zscore_in_layer` | Highlighting structurally outlier neurons in the UI |
+| `weight_zscore_in_layer` | Highlighting structurally outlier neurons |
 | `layer_index` | Layer heatmap display |
 | `layer_relative_position` | Showing where in the network the neuron lives |
-
-### Why Boruta uses all three features — not just CETT_answer
-
-A neuron might have a weak `CETT_answer` signal but a strong `CETT_zscore` signal — meaning it fires at normal absolute levels but spikes dramatically relative to its own baseline during hallucination. Using only `CETT_answer` would incorrectly reject it. All three features together give Boruta the most complete picture of each neuron's per-prompt behaviour before making the confirmation decision.
-
-### Pipeline summary
-
-| Stage | Rows | Columns | What | Why |
-|---|---|---|---|---|
-| **Boruta** | 1,000 prompts — each row is one model response, labeled hallucinated or correct | 4,096 neurons × 3 features (CETT_answer, CETT_other, CETT_zscore) = 12,288 columns | Trains a Random Forest with shadow copies of every column. Rejects neurons whose 3 features cannot beat random noise at predicting the label | Reduces the search space from all neurons to only those carrying real hallucination signal. Prevents LightGBM from overfitting on noise |
-| **Delta filter** | One row per confirmed neuron (~80) | Single value: `mean(CETT_answer on halluc) − mean(CETT_answer on correct)` | Computes the direction of each confirmed neuron. Keeps only neurons where delta > 0 | We have the labels — we can directly see which neurons fire *more* during hallucination vs correct. Neurons with delta < 0 fire more during correct responses and should not be suppressed |
-| **LightGBM** | 1,000 prompts — same rows, same labels as Boruta | ~40 H-Neuron candidates × 3 features = ~120 columns | Trains a gradient-boosted classifier to predict hallucination. SHAP values rank each neuron by importance and reveal interaction patterns between neurons | Delta filter only gives direction. LightGBM gives *relative importance* — which H-Neurons matter most — and catches interactions (neuron A + neuron B together predict hallucination better than either alone) |
-| **PaCMAP** | 1,000 prompts — same rows as LightGBM | ~40 H-Neuron candidates × 3 features = ~120 columns → compressed to 2D | Projects the same 120-dimensional space LightGBM trained on into a 2D scatter plot. Each point is one prompt, coloured red (hallucinated) or blue (correct) | Geometry reveals sub-clusters and outliers the statistical pipeline misses. Researcher lasso-selects suspicious clusters, inspects which neurons fire specifically there, and manually adds or removes neurons from the H-Neuron list |
 
 ---
 
