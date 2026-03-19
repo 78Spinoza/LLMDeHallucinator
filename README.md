@@ -563,26 +563,43 @@ Run all cells — the Dash app exposes itself via an ngrok tunnel.
 ### Step 1 — Load Model
 Select a model from the dropdown (GPT-2, Llama 3.1 8B, Mistral 7B, Phi-3 Mini, or any HuggingFace path). GPU memory requirement is shown automatically.
 
-### Step 2 — Prepare Dataset
-Choose a pre-packaged dataset (TruthfulQA, HaluEval, TriviaQA) or upload your own CSV. Optionally enable **LLM-as-judge** mode for richer labeling — recommended for non-factual hallucination detection.
+**As soon as a model is selected, the UI checks `cache/{model_id}/` for existing sessions.** If previous runs exist, they are listed with their dataset, date, and completed steps. The researcher can resume any prior session — jumping directly to the first incomplete step — or start a fresh run. No recomputation of already-cached artifacts.
 
-### Step 3 — Run Activation Extraction
-The pipeline runs the dataset through the model via TransformerLens and caches activations for all (or selected) layers. Estimated runtime shown before starting.
+```
+Model selected: Llama 3.1 8B
+  ┌─────────────────────────────────────────────┐
+  │ Existing sessions found:                    │
+  │                                             │
+  │ ● truthfulqa_2025-01-15   [complete]        │
+  │   → Resume: go to suppression / export      │
+  │                                             │
+  │ ● halu-eval_2025-01-22    [CETT cached]     │
+  │   → Resume: start from detection step       │
+  │                                             │
+  │ + Start new session                         │
+  └─────────────────────────────────────────────┘
+```
+
+### Step 2 — Prepare Dataset
+Choose a pre-packaged dataset (TruthfulQA, HaluEval, TriviaQA) or upload your own CSV. Optionally enable **LLM-as-judge** mode for richer labeling — recommended for non-factual hallucination detection. If a cached dataset exists for this model + dataset combination, it is loaded instantly.
+
+### Step 3 — Run Activation Extraction & CETT
+The pipeline runs the dataset through the model via TransformerLens, extracts per-neuron post-activation values, and computes CETT scores for every neuron across correct and hallucinating prompts. Results are written to `cett/correct.h5` and `cett/halluc.h5` immediately. On any subsequent run this step is skipped entirely and the cached HDF5 files are loaded directly.
 
 ### Step 4 — H-Neuron Detection
-Choose your detection mode: **L1 probe** (fast baseline), **LightGBM** (non-linear, captures neuron interactions with SHAP importance scores), or **SAE** (frontier, monosemantic feature decomposition — planned). Results shown as a ranked neuron list with confidence scores. Layer heatmap shows where H-Neurons concentrate across the network.
+Choose your detection mode: **L1 probe** (fast baseline), **LightGBM + SHAP** (non-linear, captures neuron interactions), or **SAE** (frontier, monosemantic feature decomposition — planned). Boruta runs first to eliminate uninformative neurons. Results are cached in `detection/`. Changing detection parameters re-runs only this step — CETT scores upstream are untouched.
 
 ### Step 5 — PaCMAP Visualization
-The activation space is projected to 2D or 3D with PaCMAP. Hallucination responses cluster separately from correct responses — most clearly in middle layers 8–20. Use the layer slider to animate through the network and observe cluster formation.
+The CETT activation space is projected to 2D or 3D with PaCMAP. Hallucination responses cluster separately from correct responses — most clearly in middle layers 8–20. Projections are cached in `pacmap/` and reloaded instantly on revisit. Use the layer slider to animate through the network and observe cluster formation.
 
 ### Step 6 — Select Neurons for Suppression
-Neurons are pre-selected based on detection confidence. Review and adjust in the neuron inspector. The UI shows for each neuron: which layer, what its activation pattern looks like, and which prompts it fires on.
+Neurons are pre-selected based on detection confidence. Review and adjust in the neuron inspector — manually add or remove neurons via the ranked list or by lasso-selecting PaCMAP clusters. Every change is saved immediately to `h_neurons.json`, including the reason for manual overrides. The full history of additions and removals is preserved and reversible.
 
 ### Step 7 — Suppress Weights
-Set suppression factor (recommended: start at 20%). Click **Apply**. The model weights are edited in memory.
+Set suppression factor per neuron (recommended: start at 20%). Click **Apply**. The model weights are edited in memory. Suppression factors are saved to `h_neurons.json`.
 
 ### Step 8 — Before / After Evaluation
-The dataset is re-run on the edited model. PaCMAP overlay shows the shift in cluster separation. Hallucination rate and MMLU delta are displayed side by side. If MMLU drops beyond threshold, a warning is shown and you can reduce the suppression factor.
+The dataset is re-run on the edited model. PaCMAP overlay shows the shift in cluster separation. Hallucination rate and MMLU delta are displayed side by side. Results saved to `evaluation/before.json` and `evaluation/after.json`. Adjusting only the suppression factor and re-evaluating reuses all upstream cache — only the evaluation step reruns.
 
 ### Step 9 — Export
 Save the edited model as `.safetensors`. Download the PDF audit report. Optionally push to HuggingFace Hub.
