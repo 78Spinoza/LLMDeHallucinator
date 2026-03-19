@@ -14,7 +14,9 @@ pacmap>=0.7.0                    # PaCMAP projection (2D/3D)
 umap-learn>=0.5.5                # UMAP (alternative/comparison)
 
 # ─── ML / Detection ───────────────────────────────────────────────────────────
-scikit-learn>=1.4.0              # L1 logistic regression (H-Neuron probe)
+scikit-learn>=1.4.0              # L1 logistic regression (H-Neuron probe baseline)
+lightgbm>=4.3.0                 # Gradient-boosted detection + SHAP neuron importance
+shap>=0.45.0                    # SHAP feature attribution for LightGBM probe
 numpy>=1.26.0
 pandas>=2.0.0
 scipy>=1.12.0
@@ -24,9 +26,8 @@ dash>=2.14.0                     # Main GUI framework
 plotly>=5.18.0                   # Interactive charts + scatter
 dash-bootstrap-components>=1.5.0 # Layout components
 
-# ─── SAE (optional — advanced use) ───────────────────────────────────────────
-# sae-lens>=3.0.0                # Sparse Autoencoder training + analysis
-# Uncomment when ready for SAE-based detection
+# ─── SAE (advanced — planned) ─────────────────────────────────────────────────
+sae-lens>=3.0.0                 # Sparse Autoencoder monosemantic feature decomposition
 
 # ─── Report Generation ────────────────────────────────────────────────────────
 reportlab>=4.0.0                 # PDF audit report generation

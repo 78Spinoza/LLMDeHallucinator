@@ -149,10 +149,13 @@ LLMDeHallucinator makes it possible to:
 - Export generated dataset for reuse across runs
 
 ### H-Neuron Detection
-- Sparse logistic regression with L1 regularization (replicating the H-Neurons paper methodology)
+- **Three-tier detection pipeline** — fast baseline to frontier-grade analysis:
+  - **L1 Logistic Regression** — sparse linear probe, fast, good for quick runs (baseline)
+  - **LightGBM** — gradient-boosted trees, captures non-linear neuron interactions, built-in SHAP feature importance
+  - **Sparse Autoencoders (SAE)** — frontier approach; decomposes polysemantic neurons into monosemantic features for the cleanest possible signal *(planned)*
 - CETT metric (Contribution to Each Token's representation) for neuron activation quantification
 - Focus on **middle layers (8–20)** where hallucination signal peaks — configurable
-- Confidence scoring per neuron: how reliably does this neuron predict hallucination?
+- Confidence scoring per neuron across all detection methods
 
 ### PaCMAP Visualization (2D and 3D)
 - Interactive scatter plot — zoom, pan, hover, lasso-select
@@ -180,6 +183,28 @@ LLMDeHallucinator makes it possible to:
 - Before/after metrics: TruthfulQA score, HaluEval score, MMLU delta
 - PaCMAP visualizations embedded in report
 - Reproducibility section: random seeds, model version, dataset used
+
+---
+
+## AI + Human — Not a Black Box
+
+LLMDeHallucinator is designed as a **collaborative tool**, not a fully automated pipeline. The L1 probe detects H-Neurons at scale; the researcher stays in control.
+
+The automatic detector finds neurons that statistically predict hallucination. The PaCMAP visualization reveals the geometry — and geometry often tells you what statistics miss. A neuron with a confidence score of 0.61 might fire precisely on a tight sub-cluster of hallucination points that the top-ranked neuron never touches. Only a human looking at the visualization catches that.
+
+```
+Auto-detected neurons (L1 probe)
+         +
+Researcher inspects PaCMAP clusters
+         +
+Lasso-select → "which neurons fire here?"
+         +
+Manual add / remove candidates
+         +
+Re-run suppression with curated selection
+```
+
+This is **human-in-the-loop mechanistic interpretability** — ML detection at scale, human pattern recognition where it matters. The researcher can question the probe, catch false positives, and build genuine understanding of why specific neurons matter. Neither alone is as good as both together.
 
 ---
 
@@ -292,7 +317,7 @@ Choose a pre-packaged dataset (TruthfulQA, HaluEval, TriviaQA) or upload your ow
 The pipeline runs the dataset through the model via TransformerLens and caches activations for all (or selected) layers. Estimated runtime shown before starting.
 
 ### Step 4 — H-Neuron Detection
-L1-regularized logistic regression identifies the sparse subset of neurons whose activation patterns predict hallucination. Results shown as a ranked list with confidence scores. Layer heatmap shows where in the network H-Neurons concentrate.
+Choose your detection mode: **L1 probe** (fast baseline), **LightGBM** (non-linear, captures neuron interactions with SHAP importance scores), or **SAE** (frontier, monosemantic feature decomposition — planned). Results shown as a ranked neuron list with confidence scores. Layer heatmap shows where H-Neurons concentrate across the network.
 
 ### Step 5 — PaCMAP Visualization
 The activation space is projected to 2D or 3D with PaCMAP. Hallucination responses cluster separately from correct responses — most clearly in middle layers 8–20. Use the layer slider to animate through the network and observe cluster formation.
@@ -330,9 +355,10 @@ Models above 3B parameters require a GPU with 16GB+ VRAM for comfortable use. Go
 ## Roadmap
 
 - [x] Project architecture design
-- [ ] Core pipeline (TransformerLens + TruthfulQA + L1 probe)
+- [ ] Core pipeline (TransformerLens + TruthfulQA + L1 probe baseline)
+- [ ] LightGBM detection mode with SHAP neuron importance
 - [ ] Dash UI skeleton with model loader
-- [ ] PaCMAP visualization with hover/zoom
+- [ ] PaCMAP visualization with hover/zoom and manual lasso selection
 - [ ] Neuron weight suppression and model export
 - [ ] Before/after evaluation with MMLU
 - [ ] PDF report generation
@@ -342,6 +368,7 @@ Models above 3B parameters require a GPU with 16GB+ VRAM for comfortable use. Go
 - [ ] Google Colab quickstart notebook
 - [ ] HuggingFace Hub integration
 - [ ] Support for Mistral, Phi-3, Gemma
+- [ ] SAE-based detection (monosemantic feature decomposition)
 
 ---
 
