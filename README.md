@@ -67,6 +67,27 @@ The paper that directly motivates this project. Key findings:
 
 LLMDeHallucinator extends this with richer features (distribution comparison, weight statistics, LightGBM, Boruta) and adds the suppression + evaluation pipeline the paper stopped short of building.
 
+### Official H-Neurons Implementation — thunlp/H-Neurons
+
+The official reference implementation is available at [github.com/thunlp/H-Neurons](https://github.com/thunlp/H-Neurons). LLMDeHallucinator reuses the following components directly rather than reimplementing them:
+
+| Component | File in H-Neurons repo | What it does |
+|---|---|---|
+| `CETTManager` | `extract_activations.py` | Registers PyTorch forward hooks on the `down_proj` input; computes CETT scores across all prompts efficiently |
+| `ConsistencySampler` | `collect_responses.py` | Samples 10 responses per question, keeps only always-correct / always-wrong extremes |
+| `apply_scaling()` | `intervene_model.py` | Suppresses target neurons: `module.weight.data[:, target_neurons] *= scale_factor` |
+| `get_h_neuron_indices()` | `intervene_model.py` | Maps classifier weights to `{layer: [neuron_idx]}` dict for suppression targeting |
+| 3-vs-1 training mode | `train_classifier.py` | Positive = false-answer tokens; Negative = true-answer + true-other + false-other tokens |
+
+What LLMDeHallucinator adds on top:
+- CETT_zscore feature and tiered pre-filtering (delta → zscore threshold → Boruta) for scalability
+- LightGBM + SHAP for neuron ranking and redundancy detection
+- PaCMAP visualization with interactive lasso-select and noisy prompt exclusion
+- Session and cache management for iterative research workflows
+- Distributed suppression strategy — many small edits instead of few large ones
+- Full Dash GUI — no custom scripts required
+- Before/after MMLU delta tracking and PDF audit report generation
+
 ---
 
 ### Inference-Time Intervention — Li et al., NeurIPS 2023
@@ -338,21 +359,30 @@ The paper aggregates CETT into exactly two features per neuron:
 
 A neuron with high `CETT_answer` and low `CETT_other` is specifically active during answer generation — a strong hallucination signal.
 
-### Computing CETT with TransformerLens
+### Computing CETT — CETTManager (reused from thunlp/H-Neurons)
 
-TransformerLens exposes everything needed natively — no additional libraries required:
+The production implementation reuses `CETTManager` from the official H-Neurons repo. It registers PyTorch forward hooks directly on the `down_proj` linear module — capturing the **input** to that layer, which is equivalent to the post-activation values `z_j` after GELU/SwiGLU:
 
 ```python
-# Hook into per-neuron post-activation values
+# From H-Neurons / extract_activations.py (CETTManager)
+def hook_fn(module, input, output):
+    self.activations.append(input[0].detach())          # input to down_proj = z_j values
+    self.output_norms.append(torch.norm(output.detach(), dim=-1, keepdim=True))
+
+def get_cett_tensor(self, use_abs=True, use_mag=True):
+    if use_abs: acts = torch.abs(acts)
+    if use_mag: acts = acts * self.weight_norms.unsqueeze(0)  # multiply by ‖W_out[j,:]‖₂
+    cett = acts / (norms + 1e-8)                        # divide by ‖h_t‖₂
+    return cett.transpose(0, 1)                         # [layers, tokens, neurons]
+```
+
+For reference, the equivalent in TransformerLens (used for development and testing on GPT-2):
+
+```python
+# TransformerLens equivalent — hook_post = same values as input to down_proj
 z = model.hook("blocks.{layer}.mlp.hook_post")  # [batch, seq, d_mlp]
-
-# Get the down-projection write vectors
 W_out = model.W_out[layer]                       # [d_mlp, d_model]
-
-# Compute neuron j's rank-1 contribution at token t
-contribution = z[0, t, j] * W_out[j, :]         # [d_model]
-
-# CETT for neuron j at token t
+contribution = z[0, t, j] * W_out[j, :]         # rank-1 contribution of neuron j
 cett = contribution.norm() / h_t.norm()          # scalar
 ```
 
@@ -363,11 +393,20 @@ cett = contribution.norm() / h_t.norm()          # scalar
 ## Feature Engineering — What Goes Into Detection
 
 ### Training Data Construction — Consistency Filtering
-Following the H-Neurons paper: for each question, **10 responses are sampled** at non-zero temperature. Only the extremes are kept:
+Following the H-Neurons paper: for each question, **10 responses are sampled** at non-zero temperature (`ConsistencySampler` from thunlp/H-Neurons). Only the extremes are kept:
 - **Always correct** — all 10 responses right
 - **Always wrong** — all 10 responses wrong (confirmed hallucination, not refusal)
 
 This removes ambiguous middle-ground examples and produces clean binary labels.
+
+**Training mode — 3-vs-1**
+
+Following the H-Neurons paper's implementation:
+
+- **Positive class (1):** CETT values computed over **false-answer tokens** — the specific token span where hallucination is expressed
+- **Negative class (0):** Three groups merged — true-answer tokens, true-other tokens, and false-other tokens
+
+The 3-vs-1 imbalance is deliberate. The hallucination signal is concentrated in the false answer span. Diluting the negative class with broader context forces the probe to focus sharply on what makes those answer tokens unusual — rather than fitting noise in the surrounding context.
 
 ### The Three Per-Prompt Features
 
@@ -508,12 +547,12 @@ These have zero variance across prompts — the same value for a neuron regardle
 
 ## AI + Human — Not a Black Box
 
-LLMDeHallucinator is designed as a **collaborative tool**, not a fully automated pipeline. The L1 probe detects H-Neurons at scale; the researcher stays in control.
+LLMDeHallucinator is designed as a **collaborative tool**, not a fully automated pipeline. The detection pipeline finds H-Neurons at scale; the researcher stays in control.
 
 The automatic detector finds neurons that statistically predict hallucination. The PaCMAP visualization reveals the geometry — and geometry often tells you what statistics miss. A neuron with a confidence score of 0.61 might fire precisely on a tight sub-cluster of hallucination points that the top-ranked neuron never touches. Only a human looking at the visualization catches that.
 
 ```
-Auto-detected neurons (L1 probe)
+Auto-detected neurons (Boruta + LightGBM)
          +
 Researcher inspects PaCMAP clusters
          +
