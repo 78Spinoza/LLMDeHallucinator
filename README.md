@@ -225,10 +225,46 @@ The researcher lasso-selects sub-cluster B, the UI shows which neurons fire spec
 - Small-multiples view: all layers simultaneously in a grid
 
 ### Neuron Weight Suppression
-- Select neurons for editing directly from the visualization or from the ranked list
-- Configurable suppression factor (e.g. reduce weight by 10–50%)
-- Iterative mode: suppress gradually and re-evaluate after each step
-- Safety clamp: MMLU accuracy monitored in parallel — automatic stop if general capability degrades beyond threshold
+
+Suppression multiplies `W_out[j, :]` by a factor < 1 (e.g. 0.8 = 20% reduction). The neuron still exists — it just writes less strongly into the residual stream.
+
+**Which neurons to suppress — SHAP score, not weight magnitude**
+
+SHAP determines which H-Neurons are uniquely responsible for hallucination. Target those first. Neurons with near-zero SHAP are redundant — correlated with a higher-ranked neuron — and can be skipped entirely.
+
+```
+Rank 1  Neuron 847   SHAP = 0.041  w_out_norm = 8.2  → suppress
+Rank 2  Neuron 2341  SHAP = 0.029  w_out_norm = 1.1  → suppress
+Rank 3  Neuron 1203  SHAP = 0.003  w_out_norm = 0.4  → skip (redundant with 847)
+```
+
+**Note:** The CETT metric already incorporates `w_out_norm` — a neuron with large output weights naturally scores higher on CETT. So weight magnitude was already part of what made a neuron look like an H-Neuron in the first place. It does not need to be re-applied as a selection criterion.
+
+**How much to suppress — calibrate by w_out_norm**
+
+The same suppression factor produces very different absolute weight changes depending on the neuron's output magnitude:
+
+```
+Neuron 847   w_out_norm = 8.2  →  small factor (e.g. 10%) achieves large effect
+Neuron 2341  w_out_norm = 1.1  →  larger factor needed for equivalent effect
+```
+
+High `w_out_norm` neurons need a smaller suppression factor to achieve the same hallucination reduction — and carry more collateral risk per unit of suppression. Start conservatively and increase iteratively.
+
+**Suppression strategy:**
+
+| Step | Action |
+|---|---|
+| 1 | Sort H-Neurons by SHAP score descending |
+| 2 | Skip neurons with SHAP near zero (redundant) |
+| 3 | Apply initial suppression factor scaled inversely to w_out_norm |
+| 4 | Re-evaluate hallucination rate and MMLU after each neuron |
+| 5 | Stop when hallucination rate plateaus or MMLU drops below threshold |
+
+- Configurable suppression factor per neuron (10–50%)
+- Iterative mode — suppress one neuron at a time, re-evaluate, continue
+- Safety clamp — automatic stop if MMLU degrades beyond user-defined threshold
+- All suppression factors saved to `h_neurons.json` and fully reversible
 
 ### Before / After Evaluation
 - Re-runs the full hallucination dataset on the edited model
