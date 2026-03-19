@@ -530,6 +530,39 @@ Layer hallucination score (fraction of prompts that first go wrong here):
 
 Only the priority layers have CETT extracted. Skipping 8–10 cold layers on a 70B model saves the most expensive part of the pipeline — the full activation extraction pass — before any ML runs at all.
 
+**UI controls for Logit Lens:**
+
+```
+┌─ Logit Lens Layer Ranking ──────────────────────────────────────────┐
+│                                                                      │
+│  [✓] Run logit lens before CETT extraction                          │
+│                                                                      │
+│  Priority threshold  [0.10 ▲▼]  (min fraction of prompts that       │
+│                                   first go wrong at this layer)     │
+│                                                                      │
+│  Layer hallucination scores:                                         │
+│  Layer  8   0.03  ░░░░░░░░░░  [ ] include                           │
+│  Layer 10   0.04  ░░░░░░░░░░  [ ] include                           │
+│  Layer 12   0.41  ████░░░░░░  [✓] include  ← auto-selected          │
+│  Layer 14   0.38  ███░░░░░░░  [✓] include  ← auto-selected          │
+│  Layer 16   0.11  █░░░░░░░░░  [ ] include                           │
+│  Layer 18   0.03  ░░░░░░░░░░  [ ] include                           │
+│                                                                      │
+│  [Select all]  [Clear all]  [Reset to auto]                         │
+│                                                                      │
+│  Estimated CETT extraction: 2 layers × 14,336 neurons               │
+│  vs. all layers:            12 layers × 14,336 neurons  (6× faster) │
+│                                                                      │
+│  [ ▶ Run CETT on selected layers ]                                  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+The researcher can:
+- Override the auto-selection by manually checking any layer (e.g. force-include layer 16 to investigate)
+- Lower the threshold to include more layers when uncertain
+- Disable logit lens entirely and fall back to manual layer selection or all-layers mode
+- See the estimated speedup before committing to the extraction run
+
 **Tier 1 — Delta pre-filter** *(instant — just arithmetic)*
 
 Compute `CETT_answer_delta = mean(CETT_answer on halluc) − mean(CETT_answer on correct)` for every neuron. Keep only neurons with a meaningful positive delta — those that actually fire more during hallucination. Neurons with delta ≤ 0 cannot be H-Neurons by definition.
@@ -907,7 +940,9 @@ Model selected: Llama 3.1 8B
 Choose a pre-packaged dataset (TruthfulQA, HaluEval, TriviaQA) or upload your own CSV. Optionally enable **LLM-as-judge** mode for richer labeling — recommended for non-factual hallucination detection. If a cached dataset exists for this model + dataset combination, it is loaded instantly.
 
 ### Step 3 — Run Activation Extraction & CETT
-The pipeline runs the dataset through the model via TransformerLens, extracts per-neuron post-activation values, and computes CETT scores for every neuron across correct and hallucinating prompts. Results are written to `cett/correct.h5` and `cett/halluc.h5` immediately. On any subsequent run this step is skipped entirely and the cached HDF5 files are loaded directly.
+Before extracting CETT, the pipeline runs a single **logit lens** forward pass to rank layers by their hallucination score — the fraction of hallucinating prompts where the wrong answer first crystallises at each layer. The results are shown in a layer heatmap. The researcher reviews the auto-selected priority layers, adjusts the threshold or manually overrides the selection, then confirms. CETT extraction runs only on the selected layers.
+
+The pipeline then extracts per-neuron post-activation values and computes CETT scores for every neuron across correct and hallucinating prompts on the selected layers only. Results are written to `cett/correct.h5` and `cett/halluc.h5` immediately. On any subsequent run this step is skipped entirely and the cached HDF5 files are loaded directly. Logit lens results are cached separately in `cache/{session_id}/logit_lens.json` and reloaded instantly if the layer selection needs revisiting.
 
 ### Step 4 — H-Neuron Detection
 Choose your detection mode: **L1 probe** (fast baseline), **LightGBM + SHAP** (non-linear, captures neuron interactions), or **SAE** (frontier, monosemantic feature decomposition — planned). Boruta runs first to eliminate uninformative neurons. Results are cached in `detection/`. Changing detection parameters re-runs only this step — CETT scores upstream are untouched.
