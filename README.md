@@ -186,6 +186,69 @@ LLMDeHallucinator makes it possible to:
 
 ---
 
+## Feature Engineering — What Goes Into Detection
+
+H-Neuron detection is only as good as its features. Raw activations alone are not enough — a neuron firing at 2.3 means nothing without knowing what *normal* looks like for that neuron. The pipeline computes a rich feature set by running the dataset twice: once on **correct (non-hallucinating) prompts** to establish a per-neuron baseline, and once on **hallucinating prompts** to measure the deviation.
+
+### Baseline Statistics — Correct Prompts
+Computed per neuron across all non-hallucinating responses:
+
+| Feature | Description |
+|---|---|
+| `mean_activation_correct` | Average firing level during correct responses |
+| `std_activation_correct` | Spread — how consistently does this neuron fire on correct responses? |
+| `p25 / p75 / p95_correct` | Percentile distribution of correct activations |
+| `cett_mean_correct` | Average CETT score during correct responses |
+
+### Hallucination Statistics — Hallucinating Prompts
+Computed per neuron across all hallucinating responses:
+
+| Feature | Description |
+|---|---|
+| `mean_activation_halluc` | Average firing level during hallucinations |
+| `std_activation_halluc` | Spread during hallucinations |
+| `p25 / p75 / p95_halluc` | Percentile distribution of hallucination activations |
+| `cett_mean_halluc` | Average CETT score during hallucinations |
+
+### Contrast Features — The Signal
+Derived by comparing the two distributions:
+
+| Feature | Description |
+|---|---|
+| `activation_delta` | `mean_halluc − mean_correct` — raw lift during hallucination |
+| `cohen_d` | Effect size between the two distributions — how separable are they? |
+| `activation_zscore` | How many std above the correct baseline is this neuron firing right now? |
+| `kl_divergence` | How different are the two activation distributions overall? |
+
+### Static Neuron Features — Structural Properties
+Fixed per neuron, independent of any prompt:
+
+| Feature | Description |
+|---|---|
+| `weight_l2_norm` | Total weight magnitude — larger = more downstream influence |
+| `weight_rank_in_layer` | Rank by weight magnitude among all neurons in the same layer |
+| `weight_zscore_in_layer` | How far above average is this neuron's weight magnitude? |
+| `layer_index` | Which layer this neuron belongs to |
+| `layer_relative_position` | `layer / total_layers` — where in the network (0 = early, 1 = late) |
+
+### Per-Prompt Dynamic Features
+Computed fresh for every prompt, combined with the above at inference time:
+
+| Feature | Description |
+|---|---|
+| `raw_activation` | Neuron activation value for this specific prompt |
+| `activation_zscore_vs_correct` | `(raw − mean_correct) / std_correct` — deviation from normal |
+| `activation_percentile_vs_correct` | Where does this activation fall in the correct distribution? |
+| `cett_score` | CETT contribution for this prompt |
+
+### Why Both Distributions Matter
+
+> A neuron that fires at 2.3 on a hallucinating prompt is unremarkable if it always fires at 2.3. The same neuron firing at 2.3 when its correct-prompt mean is 0.4 with std 0.2 is a 9.5σ event — that is an H-Neuron.
+
+Boruta uses these features to reject neurons with no discriminative power. LightGBM then learns the interaction patterns — e.g. high `cohen_d` AND high `weight_rank_in_layer` AND spiking `cett_score` — that a linear probe could never capture.
+
+---
+
 ## AI + Human — Not a Black Box
 
 LLMDeHallucinator is designed as a **collaborative tool**, not a fully automated pipeline. The L1 probe detects H-Neurons at scale; the researcher stays in control.
