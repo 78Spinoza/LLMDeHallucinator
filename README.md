@@ -509,12 +509,29 @@ Of those, keep only neurons where at least one prompt produced a `CETT_zscore` a
 ~17,000  →  ~3,000  (ever exceeded 3σ on at least one hallucinating prompt)
 ```
 
-**Tier 3 — Boruta** *(now feasible)*
+**Tier 2.5 — Per-layer candidate summary** *(instant — free byproduct of Tier 2)*
+
+After Tier 2, the per-layer neuron counts are already computed. Surface them as a layer heatmap before Boruta runs so the researcher can see immediately which layers are worth analysing and which have too few survivors to bother with.
+
+```
+Layer  8:   12 candidates   ██░░░░░░░░
+Layer 10:    3 candidates   █░░░░░░░░░  ← skip
+Layer 12:  341 candidates   ██████████  ← run Boruta here first
+Layer 14:  287 candidates   █████████░
+Layer 16:   94 candidates   ███░░░░░░░
+Layer 18:    8 candidates   █░░░░░░░░░  ← skip
+```
+
+Layers with very few survivors (e.g. < 10 candidates) are automatically de-prioritised — they are unlikely to contain confirmed H-Neurons and running Boruta on them wastes compute. The researcher can override this if needed. This per-layer view is also the basis for the layer selection in layer-by-layer mode: the heatmap tells you which layers to run first.
+
+**Tier 3 — Boruta** *(now feasible — run on hot layers only)*
 
 ```
 ~3,000 neurons × 3 features = ~9,000 columns  →  tractable
 Output: ~80–200 confirmed neurons
 ```
+
+Run Boruta only on layers that passed the Tier 2.5 candidate count threshold. Skip cold layers.
 
 **Tier 4 — Fallback: LightGBM feature importance** *(if Boruta still times out)*
 
@@ -524,11 +541,13 @@ Skip Boruta and use LightGBM's built-in feature importance directly after Tier 2
 
 ```
 172,000 neurons  (14,336 per layer × 12 layers)
-      ↓  Tier 1: delta pre-filter        (instant)
+      ↓  Tier 1: delta pre-filter              (instant)
  ~17,000
-      ↓  Tier 2: CETT_zscore threshold   (instant)
+      ↓  Tier 2: CETT_zscore threshold         (instant)
   ~3,000
-      ↓  Tier 3: Boruta                  (feasible — minutes not days)
+      ↓  Tier 2.5: per-layer candidate summary (instant — free)
+         researcher sees layer heatmap, skips cold layers
+      ↓  Tier 3: Boruta on hot layers only     (feasible — minutes not days)
    80–200 confirmed
       ↓  Delta direction filter
    ~40 H-Neuron candidates
@@ -536,7 +555,7 @@ Skip Boruta and use LightGBM's built-in feature importance directly after Tier 2
    Final ranked H-Neuron list
 ```
 
-The UI shows estimated runtime before each stage and allows the researcher to configure thresholds (delta cutoff, zscore threshold, number of Boruta iterations) or switch to the LightGBM fallback if Boruta is too slow for their hardware.
+The UI shows estimated runtime before each stage and allows the researcher to configure thresholds (delta cutoff, zscore threshold, candidate count minimum, number of Boruta iterations) or switch to the LightGBM fallback if Boruta is too slow for their hardware.
 
 ---
 
