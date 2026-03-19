@@ -328,12 +328,12 @@ A neuron might have a weak `CETT_answer` signal but a strong `CETT_zscore` signa
 
 ### Pipeline summary
 
-| Stage | Rows | Columns | What it decides |
-|---|---|---|---|
-| **Boruta** | 1,000 prompts | 4,096 neurons × 3 features | Which neurons carry any signal |
-| **Delta filter** | — | 80 confirmed neurons | Which of those fire *more* during hallucination |
-| **LightGBM** | 1,000 prompts | ~40 H-Neuron candidates × 3 features | Which H-Neurons matter most + interactions |
-| **PaCMAP** | 1,000 prompts | ~40 H-Neuron candidates × 3 features | Human inspects geometry, refines selection |
+| Stage | Rows | Columns | What | Why |
+|---|---|---|---|---|
+| **Boruta** | 1,000 prompts — each row is one model response, labeled hallucinated or correct | 4,096 neurons × 3 features (CETT_answer, CETT_other, CETT_zscore) = 12,288 columns | Trains a Random Forest with shadow copies of every column. Rejects neurons whose 3 features cannot beat random noise at predicting the label | Reduces the search space from all neurons to only those carrying real hallucination signal. Prevents LightGBM from overfitting on noise |
+| **Delta filter** | One row per confirmed neuron (~80) | Single value: `mean(CETT_answer on halluc) − mean(CETT_answer on correct)` | Computes the direction of each confirmed neuron. Keeps only neurons where delta > 0 | We have the labels — we can directly see which neurons fire *more* during hallucination vs correct. Neurons with delta < 0 fire more during correct responses and should not be suppressed |
+| **LightGBM** | 1,000 prompts — same rows, same labels as Boruta | ~40 H-Neuron candidates × 3 features = ~120 columns | Trains a gradient-boosted classifier to predict hallucination. SHAP values rank each neuron by importance and reveal interaction patterns between neurons | Delta filter only gives direction. LightGBM gives *relative importance* — which H-Neurons matter most — and catches interactions (neuron A + neuron B together predict hallucination better than either alone) |
+| **PaCMAP** | 1,000 prompts — same rows as LightGBM | ~40 H-Neuron candidates × 3 features = ~120 columns → compressed to 2D | Projects the same 120-dimensional space LightGBM trained on into a 2D scatter plot. Each point is one prompt, coloured red (hallucinated) or blue (correct) | Geometry reveals sub-clusters and outliers the statistical pipeline misses. Researcher lasso-selects suspicious clusters, inspects which neurons fire specifically there, and manually adds or removes neurons from the H-Neuron list |
 
 ---
 
