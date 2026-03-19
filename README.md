@@ -189,12 +189,40 @@ LLMDeHallucinator makes it possible to:
 - Confidence scoring per neuron across all detection methods
 
 ### PaCMAP Visualization (2D and 3D)
-- Interactive scatter plot — zoom, pan, hover, lasso-select
-- Each point = one model response, colored by hallucination/correct
-- Hover reveals: original prompt, model response, layer, contributing neurons
-- Layer-by-layer animation to see how clusters form across the network
+
+PaCMAP projects the same 120-dimensional space (40 H-Neuron candidates × 3 features) that LightGBM trained on down to 2D or 3D. Each point is one prompt. It answers two questions simultaneously:
+
+**1 — Are the two sets separable?**
+If the detected H-Neurons genuinely explain hallucination, the red and blue points should form distinct clusters. Clean separation = the neuron selection is good. Poor separation = go back and refine.
+
+```
+Good separation          Poor separation — refine neuron selection
+
+  ● ● ●                    ● ○ ● ○
+    ● ●    ○ ○ ○           ○ ● ○ ●
+  ● ● ●      ○ ○             ● ○ ●
+```
+
+**2 — Are there sub-clusters within the hallucination group?**
+All red points are hallucinations — but they may not all be the same *type*. Sub-cluster A might be hallucinations about dates, sub-cluster B about names, each driven by a different neuron. The statistical pipeline treats them as one group. PaCMAP reveals the structure inside.
+
+```
+  ● ●          ← sub-cluster A (neuron 847 drives this)
+ ● ● ●
+
+        ● ●   ← sub-cluster B (neuron 1203 drives this —
+       ● ●       missed by LightGBM, found by researcher)
+
+○ ○ ○ ○ ○    ← correct prompts
+```
+
+The researcher lasso-selects sub-cluster B, the UI shows which neurons fire specifically on those prompts, and neuron 1203 is manually added to the H-Neuron list.
+
+- Interactive scatter — zoom, pan, hover, lasso-select
+- Hover reveals: original prompt, model response, which neurons fired
+- Separation index shown per layer — quantifies cluster quality numerically
+- Layer-by-layer animation to see how separation evolves across the network
 - Small-multiples view: all layers simultaneously in a grid
-- Separation index per layer — quantifies cluster quality numerically
 
 ### Neuron Weight Suppression
 - Select neurons for editing directly from the visualization or from the ranked list
