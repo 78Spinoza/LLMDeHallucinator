@@ -493,6 +493,43 @@ Llama 3.1 8B:
 
 The solution is a tiered pre-filter that reduces the space to something Boruta can handle using cheap arithmetic operations first, before any ML runs.
 
+**Tier 0 — Logit Lens layer ranking** *(one forward pass — runs before CETT extraction)*
+
+Before computing CETT on any neuron, project the residual stream at each intermediate layer through the unembedding matrix (`lm_head`) to see what token the model would predict if it stopped at that layer. This is the logit lens technique (Nostalgebraist, 2020).
+
+```python
+# One forward pass, no CETT needed
+for layer in range(n_layers):
+    hidden = residual_stream[:, answer_token_pos, :]   # [batch, d_model]
+    logits = model.lm_head(model.ln_f(hidden[layer]))  # project to vocabulary
+    top_token = logits.argmax(-1)                       # what would the model predict here?
+```
+
+On a hallucinating prompt this produces a clear signal:
+
+```
+Layer  8:  "Paris"   ← correct answer still dominant
+Layer 10:  "Paris"   ← correct
+Layer 12:  "Paris"   ← correct
+Layer 14:  "Berlin"  ← hallucinated answer crystallises HERE
+Layer 16:  "Berlin"
+Layer 18:  "Berlin"
+```
+
+The layer where the wrong answer first appears is where something went wrong in the forward pass — a strong prior for where H-Neurons live. Average this signal across all hallucinating prompts to get a **layer hallucination score**: the fraction of hallucinating prompts where the wrong answer first crystallises at each layer.
+
+```
+Layer hallucination score (fraction of prompts that first go wrong here):
+  Layer  8:  0.03   ░░░░░░░░░░  — skip
+  Layer 10:  0.04   ░░░░░░░░░░  — skip
+  Layer 12:  0.41   ████░░░░░░  — priority
+  Layer 14:  0.38   ███░░░░░░░  — priority
+  Layer 16:  0.11   █░░░░░░░░░  — low priority
+  Layer 18:  0.03   ░░░░░░░░░░  — skip
+```
+
+Only the priority layers have CETT extracted. Skipping 8–10 cold layers on a 70B model saves the most expensive part of the pipeline — the full activation extraction pass — before any ML runs at all.
+
 **Tier 1 — Delta pre-filter** *(instant — just arithmetic)*
 
 Compute `CETT_answer_delta = mean(CETT_answer on halluc) − mean(CETT_answer on correct)` for every neuron. Keep only neurons with a meaningful positive delta — those that actually fire more during hallucination. Neurons with delta ≤ 0 cannot be H-Neurons by definition.
@@ -540,7 +577,12 @@ Skip Boruta and use LightGBM's built-in feature importance directly after Tier 2
 **Full pre-filter funnel:**
 
 ```
-172,000 neurons  (14,336 per layer × 12 layers)
+All layers  (e.g. 80 layers in a 70B model)
+      ↓  Tier 0: logit lens layer ranking       (1 forward pass — free)
+         → 2–4 priority layers identified, rest skipped
+         → CETT extraction runs on priority layers only
+
+172,000 neurons  (14,336 per layer × 12 layers — after Tier 0 layer selection)
       ↓  Tier 1: delta pre-filter              (instant)
  ~17,000
       ↓  Tier 2: CETT_zscore threshold         (instant)
