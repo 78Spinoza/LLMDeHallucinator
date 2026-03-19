@@ -494,7 +494,7 @@ CETT scores computed for a given model are stored under that model's directory a
 
 ### Force Recalculate
 
-Every pipeline step has a **Recalculate** button that discards the cached result for that step and all steps downstream, then reruns from scratch. This is useful when:
+Every pipeline step in the UI shows its current cache status and a **↺ Recalculate** button. Clicking it discards the cached result for that step and all steps downstream, then reruns from scratch — no config editing or CLI required. This is useful when:
 
 - A new version of the dataset is available and CETT scores need refreshing
 - Detection parameters were changed and a clean rerun is preferred over incremental updates
