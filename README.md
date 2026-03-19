@@ -218,7 +218,31 @@ All red points are hallucinations — but they may not all be the same *type*. S
 
 The researcher lasso-selects sub-cluster B, the UI shows which neurons fire specifically on those prompts, and neuron 1203 is manually added to the H-Neuron list.
 
+**Noisy prompt exclusion — interactive dataset cleaning**
+
+Consistency filtering (10 samples, keep extremes) catches obvious noise before the pipeline runs. But some prompts still slip through — questions where the model's hallucination behaviour is ambiguous or context-dependent, unrelated to H-Neurons. In PaCMAP these appear as a permanently mixed zone where red and blue points are hopelessly interleaved regardless of which neurons are selected.
+
+```
+Clean region:              Noisy mixed zone — exclude these:
+
+  ● ● ●                     ● ● ●
+    ● ●    ○ ○ ○           ● ○ ● ○ ○   ← red and blue always
+  ● ● ●      ○ ○           ○ ● ○ ●        mixed — not separable
+                                           by any neuron
+```
+
+These prompts are training noise — they degrade Boruta's ability to confirm real H-Neurons and give LightGBM contradictory signal. The researcher can:
+
+1. Lasso-select the mixed zone
+2. Hover to inspect the prompts — confirm they are genuinely ambiguous (e.g. questions with no single correct answer, culturally dependent facts, model inconsistency unrelated to knowledge)
+3. Mark as excluded — removed from the training matrix
+4. Pipeline re-runs Boruta and LightGBM on the cleaned dataset automatically
+5. Excluded prompts are saved to `session.json` and can be restored at any time
+
+The separation index updates immediately after exclusion — if it improves significantly, the excluded prompts were genuinely hurting the signal.
+
 - Interactive scatter — zoom, pan, hover, lasso-select
+- Lasso → add neurons, exclude prompts, or inspect sub-clusters
 - Hover reveals: original prompt, model response, which neurons fired
 - Separation index shown per layer — quantifies cluster quality numerically
 - Layer-by-layer animation to see how separation evolves across the network
