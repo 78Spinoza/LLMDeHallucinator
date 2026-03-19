@@ -319,6 +319,31 @@ High `w_out_norm` neurons need a smaller suppression factor to achieve the same 
 - Safety clamp — automatic stop if MMLU degrades beyond user-defined threshold
 - All suppression factors saved to `h_neurons.json` and fully reversible
 
+**Layer-by-layer iterative mode — important for large models**
+
+For models above ~13B parameters, running detection across all middle layers simultaneously is computationally prohibitive. The layer-by-layer mode processes one layer at a time:
+
+```
+1. Researcher selects starting layer (e.g. layer 12) in the GUI
+2. Run full pipeline (CETT → Boruta → LightGBM) on layer 12 only
+3. Suppress identified H-Neurons in layer 12
+4. Re-run the dataset through the now-modified model
+5. Move to next layer (e.g. layer 15) — detect on the already-suppressed model
+6. Repeat until hallucination rate drops below threshold or all target layers processed
+```
+
+The re-run after each layer is the critical step. Once layer 12's H-Neurons are suppressed, the activations flowing into layer 15 are different — so detecting H-Neurons at layer 15 measures what that layer contributes *independently*, not contaminated by layer 12's over-firing cascading forward. This gives a cleaner causal picture of how hallucination propagates through the network.
+
+In practice you will often find that 2–4 layers carry the majority of the signal. The researcher can stop early — no need to process all middle layers if the hallucination rate already drops to acceptable levels after the first two.
+
+```
+GUI layer selector:
+  [ Layer 8 ] [ Layer 10 ] [ Layer 12 ✓ ] [ Layer 14 ] [ Layer 16 ] [ Layer 18 ]
+                                 ↓
+             Run detection on selected layer only
+             Suppress → re-evaluate → move to next
+```
+
 ### Before / After Evaluation
 - Re-runs the full hallucination dataset on the edited model
 - Side-by-side comparison: hallucination rate, separation index, PaCMAP overlay
@@ -826,6 +851,8 @@ The pipeline runs the dataset through the model via TransformerLens, extracts pe
 ### Step 4 — H-Neuron Detection
 Choose your detection mode: **L1 probe** (fast baseline), **LightGBM + SHAP** (non-linear, captures neuron interactions), or **SAE** (frontier, monosemantic feature decomposition — planned). Boruta runs first to eliminate uninformative neurons. Results are cached in `detection/`. Changing detection parameters re-runs only this step — CETT scores upstream are untouched.
 
+**Layer selection:** Choose which layers to analyse — run all middle layers at once (default for small models) or select individual layers manually (recommended for 13B+). The layer selector shows the separation index per layer from PaCMAP so you can prioritise the layers with the strongest hallucination signal.
+
 ### Step 5 — PaCMAP Visualization
 The CETT activation space is projected to 2D or 3D with PaCMAP. Hallucination responses cluster separately from correct responses — most clearly in middle layers 8–20. Projections are cached in `pacmap/` and reloaded instantly on revisit. Use the layer slider to animate through the network and observe cluster formation.
 
@@ -885,6 +912,7 @@ Models above 3B parameters require a GPU with 16GB+ VRAM for comfortable use. Go
 - [ ] HuggingFace Hub integration
 - [ ] Support for Mistral, Phi-3, Gemma
 - [ ] SAE-based detection (monosemantic feature decomposition)
+- [ ] Layer-by-layer iterative detection and suppression mode — select individual layers manually, suppress, re-run on the modified model, proceed to next layer; essential for 13B+ models
 - [ ] Inference-time hallucination detector — use identified H-Neurons as live monitors during inference; each response gets a hallucination probability score without any weight modification *(post-detection)*
 - [ ] Activation steering — hook-based suppression as a reversible alternative to permanent weight editing; subtract H-Neuron contributions from the residual stream at inference time, no safetensors export required *(post-detection)*
 - [ ] Live suppression safety dashboard — real-time trade-off chart (hallucination rate vs MMLU delta) as suppression factor is adjusted; automatic rollback alert at user-defined degradation threshold *(post-detection)*
