@@ -385,6 +385,65 @@ Total: 1,000 rows  ×  (4,096 neurons × 3 features)  =  1,000 × 12,288 matrix
 
 ---
 
+### Scalability — Pre-filtering Before Boruta
+
+In practice the feature space is far larger than the worked example. Boruta trains a Random Forest 100+ times — on a large model that becomes computationally prohibitive:
+
+```
+Llama 3.1 8B:
+  14,336 neurons per layer × 12 middle layers × 3 features = 516,096 columns
+  Boruta on 516,096 columns → days, not hours
+```
+
+The solution is a tiered pre-filter that reduces the space to something Boruta can handle using cheap arithmetic operations first, before any ML runs.
+
+**Tier 1 — Delta pre-filter** *(instant — just arithmetic)*
+
+Compute `CETT_answer_delta = mean(CETT_answer on halluc) − mean(CETT_answer on correct)` for every neuron. Keep only neurons with a meaningful positive delta — those that actually fire more during hallucination. Neurons with delta ≤ 0 cannot be H-Neurons by definition.
+
+```
+~172,000 neurons (14,336 × 12 layers)  →  ~17,000  (top 10% positive delta)
+```
+
+**Tier 2 — CETT_zscore spike threshold** *(instant — single pass)*
+
+Of those, keep only neurons where at least one prompt produced a `CETT_zscore` above a threshold (e.g. > 3σ). A neuron that never spiked unusually on any individual prompt — even if its mean is slightly elevated — is unlikely to be an H-Neuron.
+
+```
+~17,000  →  ~3,000  (ever exceeded 3σ on at least one hallucinating prompt)
+```
+
+**Tier 3 — Boruta** *(now feasible)*
+
+```
+~3,000 neurons × 3 features = ~9,000 columns  →  tractable
+Output: ~80–200 confirmed neurons
+```
+
+**Tier 4 — Fallback: LightGBM feature importance** *(if Boruta still times out)*
+
+Skip Boruta and use LightGBM's built-in feature importance directly after Tier 2. Less statistically rigorous — it does not formally reject noise the way Boruta does — but far faster and still much better than no filtering at all. The UI warns the researcher when this fallback is active.
+
+**Full pre-filter funnel:**
+
+```
+172,000 neurons  (14,336 per layer × 12 layers)
+      ↓  Tier 1: delta pre-filter        (instant)
+ ~17,000
+      ↓  Tier 2: CETT_zscore threshold   (instant)
+  ~3,000
+      ↓  Tier 3: Boruta                  (feasible — minutes not days)
+   80–200 confirmed
+      ↓  Delta direction filter
+   ~40 H-Neuron candidates
+      ↓  LightGBM + SHAP
+   Final ranked H-Neuron list
+```
+
+The UI shows estimated runtime before each stage and allows the researcher to configure thresholds (delta cutoff, zscore threshold, number of Boruta iterations) or switch to the LightGBM fallback if Boruta is too slow for their hardware.
+
+---
+
 ### Pipeline Stages
 
 | Stage | Rows | Columns | What it does | Why |
