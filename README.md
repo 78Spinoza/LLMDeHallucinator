@@ -54,25 +54,56 @@
 
 ## Research Background
 
-This project directly builds on and extends:
+### H-Neurons — Gao et al., arXiv:2512.01797 *(primary reference)*
 
-- **H-Neurons** (Gao et al., Dec 2025) — arXiv:2512.01797
-  Identified that <0.1% of neurons reliably predict hallucination events. Established the CETT metric and L1-probe methodology. Found that H-Neurons originate during pre-training, not alignment.
+The paper that directly motivates this project. Key findings:
 
-- **Inference-Time Intervention** (Li et al., 2023)
-  Demonstrated that targeted activation editing at inference time can improve truthfulness.
+- Fewer than **0.1% of neurons** reliably predict hallucination events across six LLMs (Mistral, Gemma, Llama families)
+- H-Neurons concentrate in **middle layers** and originate during **pre-training** — instruction tuning leaves them largely untouched ("parameter inertia")
+- Detection AUROC exceeds **86%** on Mistral family models using only 2 features per neuron
+- Causal validation: amplifying H-Neuron activations increases hallucination and sycophancy rates; ablating them reduces them
 
-- **Sparse Autoencoders for Interpretability** (Bricken et al., Anthropic 2023)
-  Showed that sparse, interpretable features can be extracted from LLM activations.
+**Their exact method:** Consistency filtering (10 samples per question, keep only always-correct / always-wrong), compute CETT scores per neuron, train L1 logistic regression on `[CETT_answer, CETT_other]`. That is the complete input feature set.
 
-- **Entity Recognition via SAE Latents** (Ferrando et al., ICLR 2025)
-  Found linear directions encoding model self-knowledge about whether it knows a fact.
+LLMDeHallucinator extends this with richer features (distribution comparison, weight statistics, LightGBM, Boruta) and adds the suppression + evaluation pipeline the paper stopped short of building.
+
+---
+
+### Inference-Time Intervention — Li et al., NeurIPS 2023
+
+Found that truthfulness is **linearly encoded in attention head activations**. Key contribution: the **mass mean shift** — the vector from the centroid of false-response activations to the centroid of true-response activations — is a more reliable intervention direction than trained probe weights. Shifting activations along this direction at inference time (no weight editing) improves TruthfulQA scores by 13–42 percentage points depending on model.
+
+*Relevance: confirms that correct vs. hallucinating distribution comparison is meaningful and causal. Informs our baseline distribution feature design.*
+
+---
+
+### Towards Monosemanticity — Bricken et al., Anthropic 2023
+
+MLP neurons are **polysemantic** — one neuron fires for multiple unrelated concepts due to superposition. Sparse Autoencoders (SAEs) fix this: training a two-layer autoencoder with L1 sparsity on MLP activations (e.g. 512 neurons → 4096 features) recovers monosemantic features, ~70% of which are judged interpretable by human raters. Causal validation: steering a single SAE feature shifts model output in the predicted direction.
+
+*Relevance: motivates SAE as the advanced detection mode. Raw neurons are noisy; SAE features give cleaner signal.*
+
+---
+
+### Do I Know This Entity? — Ferrando et al., ICLR 2025
+
+Applied pre-trained SAEs (Gemma Scope) to the entity knowledge problem. Introduced the **separation score** per SAE latent:
+
+```
+score = fraction_fires_on_known − fraction_fires_on_unknown
+```
+
+Selected the latent that maximises this score across all entity types without any supervised training. Achieved AUROC 73.2 detecting hallucination. Causal steering of the identified latent induced near-100% refusal rate on unknown entities.
+
+*Relevance: separation score is the unsupervised analogue of our Cohen's d feature. Confirms that distribution-level comparison between known and unknown responses is causally meaningful.*
+
+---
 
 ### Key Hypothesis
 
 > H-Neurons concentrated in layers 8–20 are sufficient for hallucination detection and suppression, with a MMLU accuracy delta below 2% at a 20% suppression factor.
 
-This hypothesis is testable and measurable within the LLMDeHallucinator pipeline — and represents a concrete contribution beyond the original H-Neurons paper, which stopped short of building a production suppression tool.
+This hypothesis is testable within the LLMDeHallucinator pipeline and represents a concrete contribution beyond the original H-Neurons paper, which stopped short of building a production suppression tool.
 
 ---
 
@@ -186,66 +217,119 @@ LLMDeHallucinator makes it possible to:
 
 ---
 
+## CETT — The Core Neuron Metric
+
+**CETT (Contribution-based Efficacy Token Test)** is the metric introduced by the H-Neurons paper for measuring how much a single feedforward neuron contributes to the model's information flow at a specific token position.
+
+For neuron `j` at token position `t`:
+
+```
+CETT(j, t) = ‖ z_t^(j) · W_out[j, :] ‖₂  /  ‖ h_t ‖₂
+```
+
+Where:
+- `z_t^(j)` — the post-activation scalar value of neuron `j` at token `t` (after GELU/ReLU)
+- `W_out[j, :]` — the `j`-th row of the MLP down-projection matrix (neuron `j`'s "write vector" into the residual stream)
+- `z_t^(j) · W_out[j, :]` — the rank-1 vector that neuron `j` contributes to the hidden state
+- `h_t` — the full MLP output at token `t`
+
+The ratio is a number between 0 and 1 expressing what **fraction of the total MLP output magnitude** at token `t` is attributable to neuron `j` alone.
+
+### Why CETT over raw activations
+
+Raw activation values (`z_t^(j)`) are not comparable across neurons — a neuron with small activations but large output weights can dominate the residual stream, while a neuron with large activations but tiny output weights may be irrelevant. CETT accounts for both, making it a true measure of influence rather than mere activity.
+
+### The two CETT features per neuron (H-Neurons paper)
+
+The paper aggregates CETT into exactly two features per neuron:
+
+| Feature | Description |
+|---|---|
+| `CETT_answer` | Mean CETT across the **answer token span** — where hallucination happens |
+| `CETT_other` | Mean CETT across all **non-answer tokens** — the baseline contribution |
+
+A neuron with high `CETT_answer` and low `CETT_other` is specifically active during answer generation — a strong hallucination signal.
+
+### Computing CETT with TransformerLens
+
+TransformerLens exposes everything needed natively — no additional libraries required:
+
+```python
+# Hook into per-neuron post-activation values
+z = model.hook("blocks.{layer}.mlp.hook_post")  # [batch, seq, d_mlp]
+
+# Get the down-projection write vectors
+W_out = model.W_out[layer]                       # [d_mlp, d_model]
+
+# Compute neuron j's rank-1 contribution at token t
+contribution = z[0, t, j] * W_out[j, :]         # [d_model]
+
+# CETT for neuron j at token t
+cett = contribution.norm() / h_t.norm()          # scalar
+```
+
+`W_out` norms can be precomputed once per model — making CETT efficient to compute across thousands of neurons and prompts.
+
+---
+
 ## Feature Engineering — What Goes Into Detection
 
-H-Neuron detection is only as good as its features. Raw activations alone are not enough — a neuron firing at 2.3 means nothing without knowing what *normal* looks like for that neuron. The pipeline computes a rich feature set by running the dataset twice: once on **correct (non-hallucinating) prompts** to establish a per-neuron baseline, and once on **hallucinating prompts** to measure the deviation.
+CETT is the primary signal. The pipeline extends it by running the dataset in two passes — once on **correct (non-hallucinating) prompts** to build a per-neuron CETT baseline, once on **hallucinating prompts** to measure the deviation. This dual-pass approach is what makes the features meaningful rather than just large numbers.
+
+### Training Data Construction — Consistency Filtering
+Following the H-Neurons paper: for each question, **10 responses are sampled** at non-zero temperature. Only the extremes are kept:
+- **Always correct** — all 10 responses right
+- **Always wrong** — all 10 responses wrong (confirmed hallucination, not refusal)
+
+This removes ambiguous middle-ground examples and produces clean binary labels.
 
 ### Baseline Statistics — Correct Prompts
-Computed per neuron across all non-hallucinating responses:
+Computed per neuron across all consistently-correct responses:
 
 | Feature | Description |
 |---|---|
-| `mean_activation_correct` | Average firing level during correct responses |
-| `std_activation_correct` | Spread — how consistently does this neuron fire on correct responses? |
-| `p25 / p75 / p95_correct` | Percentile distribution of correct activations |
-| `cett_mean_correct` | Average CETT score during correct responses |
+| `cett_answer_correct` | Mean CETT over **answer tokens** during correct responses — the clean baseline |
+| `cett_other_correct` | Mean CETT over **non-answer tokens** during correct responses |
+| `cett_std_correct` | Spread of CETT values — how stable is this neuron on correct responses? |
+| `cett_p95_correct` | 95th percentile CETT — upper bound of normal behavior |
 
 ### Hallucination Statistics — Hallucinating Prompts
-Computed per neuron across all hallucinating responses:
+Computed per neuron across all consistently-wrong responses:
 
 | Feature | Description |
 |---|---|
-| `mean_activation_halluc` | Average firing level during hallucinations |
-| `std_activation_halluc` | Spread during hallucinations |
-| `p25 / p75 / p95_halluc` | Percentile distribution of hallucination activations |
-| `cett_mean_halluc` | Average CETT score during hallucinations |
+| `cett_answer_halluc` | Mean CETT over **answer tokens** during hallucinations — the key signal |
+| `cett_other_halluc` | Mean CETT over **non-answer tokens** during hallucinations |
+| `cett_std_halluc` | Spread during hallucinations |
+| `cett_p95_halluc` | 95th percentile CETT during hallucinations |
 
 ### Contrast Features — The Signal
-Derived by comparing the two distributions:
+Derived by comparing the two CETT distributions:
 
 | Feature | Description |
 |---|---|
-| `activation_delta` | `mean_halluc − mean_correct` — raw lift during hallucination |
-| `cohen_d` | Effect size between the two distributions — how separable are they? |
-| `activation_zscore` | How many std above the correct baseline is this neuron firing right now? |
-| `kl_divergence` | How different are the two activation distributions overall? |
+| `cett_answer_delta` | `cett_answer_halluc − cett_answer_correct` — lift on answer tokens during hallucination |
+| `cett_specificity` | `cett_answer_halluc / cett_other_halluc` — does this neuron spike specifically on answers? |
+| `cohen_d` | Effect size between correct and hallucination CETT distributions |
+| `separation_score` | `fraction_fires_halluc − fraction_fires_correct` — Ferrando-style separation |
+| `kl_divergence` | How different are the two CETT distributions overall? |
 
 ### Static Neuron Features — Structural Properties
 Fixed per neuron, independent of any prompt:
 
 | Feature | Description |
 |---|---|
-| `weight_l2_norm` | Total weight magnitude — larger = more downstream influence |
-| `weight_rank_in_layer` | Rank by weight magnitude among all neurons in the same layer |
-| `weight_zscore_in_layer` | How far above average is this neuron's weight magnitude? |
+| `w_out_norm` | L2 norm of `W_out[j, :]` — how large is this neuron's write vector? |
+| `weight_rank_in_layer` | Rank of `w_out_norm` among all neurons in the same layer |
+| `weight_zscore_in_layer` | Z-score of `w_out_norm` within the layer — outlier neurons are suspicious |
 | `layer_index` | Which layer this neuron belongs to |
-| `layer_relative_position` | `layer / total_layers` — where in the network (0 = early, 1 = late) |
-
-### Per-Prompt Dynamic Features
-Computed fresh for every prompt, combined with the above at inference time:
-
-| Feature | Description |
-|---|---|
-| `raw_activation` | Neuron activation value for this specific prompt |
-| `activation_zscore_vs_correct` | `(raw − mean_correct) / std_correct` — deviation from normal |
-| `activation_percentile_vs_correct` | Where does this activation fall in the correct distribution? |
-| `cett_score` | CETT contribution for this prompt |
+| `layer_relative_position` | `layer / total_layers` — position in network (0 = early, 1 = late) |
 
 ### Why Both Distributions Matter
 
-> A neuron that fires at 2.3 on a hallucinating prompt is unremarkable if it always fires at 2.3. The same neuron firing at 2.3 when its correct-prompt mean is 0.4 with std 0.2 is a 9.5σ event — that is an H-Neuron.
+> A neuron with `cett_answer_halluc = 0.031` is unremarkable if its `cett_answer_correct = 0.029`. The same score when `cett_answer_correct = 0.003` represents a 10× lift on answer tokens — that is an H-Neuron.
 
-Boruta uses these features to reject neurons with no discriminative power. LightGBM then learns the interaction patterns — e.g. high `cohen_d` AND high `weight_rank_in_layer` AND spiking `cett_score` — that a linear probe could never capture.
+Boruta uses these features to reject neurons with no discriminative power before LightGBM sees them. LightGBM then learns interaction patterns — e.g. high `cohen_d` AND high `weight_rank_in_layer` AND high `cett_specificity` — that the original L1 probe on 2 features alone cannot capture.
 
 ---
 
