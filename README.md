@@ -326,6 +326,15 @@ Static features (`w_out_norm`, `weight_rank`, `layer_position`) have **zero vari
 
 A neuron might have a weak `CETT_answer` signal but a strong `CETT_zscore` signal — meaning it fires at normal absolute levels but spikes dramatically relative to its own baseline during hallucination. Using only `CETT_answer` would incorrectly reject it. All three features together give Boruta the most complete picture of each neuron's per-prompt behaviour before making the confirmation decision.
 
+### Pipeline summary
+
+| Stage | Rows | Columns | What it decides |
+|---|---|---|---|
+| **Boruta** | 1,000 prompts | 4,096 neurons × 3 features | Which neurons carry any signal |
+| **Delta filter** | — | 80 confirmed neurons | Which of those fire *more* during hallucination |
+| **LightGBM** | 1,000 prompts | ~40 H-Neuron candidates × 3 features | Which H-Neurons matter most + interactions |
+| **PaCMAP** | 1,000 prompts | ~40 H-Neuron candidates × 3 features | Human inspects geometry, refines selection |
+
 ---
 
 ## AI + Human — Not a Black Box
