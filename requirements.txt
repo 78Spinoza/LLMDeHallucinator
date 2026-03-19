@@ -1,0 +1,42 @@
+# ─── Core ML / Interpretability ───────────────────────────────────────────────
+transformer-lens>=2.0.0          # LLM activation extraction + hooks
+torch>=2.1.0                     # PyTorch backend
+transformers>=4.40.0             # HuggingFace model loading
+accelerate>=0.27.0               # Multi-GPU / device management
+bitsandbytes>=0.43.0             # 4-bit / 8-bit quantization
+
+# ─── Datasets & Benchmarks ────────────────────────────────────────────────────
+datasets>=2.18.0                 # TruthfulQA, TriviaQA, HaluEval
+evaluate>=0.4.0                  # MMLU and benchmark scoring
+
+# ─── Dimensionality Reduction ─────────────────────────────────────────────────
+pacmap>=0.7.0                    # PaCMAP projection (2D/3D)
+umap-learn>=0.5.5                # UMAP (alternative/comparison)
+
+# ─── ML / Detection ───────────────────────────────────────────────────────────
+scikit-learn>=1.4.0              # L1 logistic regression (H-Neuron probe)
+numpy>=1.26.0
+pandas>=2.0.0
+scipy>=1.12.0
+
+# ─── Dash / Visualization ─────────────────────────────────────────────────────
+dash>=2.14.0                     # Main GUI framework
+plotly>=5.18.0                   # Interactive charts + scatter
+dash-bootstrap-components>=1.5.0 # Layout components
+
+# ─── SAE (optional — advanced use) ───────────────────────────────────────────
+# sae-lens>=3.0.0                # Sparse Autoencoder training + analysis
+# Uncomment when ready for SAE-based detection
+
+# ─── Report Generation ────────────────────────────────────────────────────────
+reportlab>=4.0.0                 # PDF audit report generation
+
+# ─── LLM-as-judge (optional) ──────────────────────────────────────────────────
+anthropic>=0.25.0                # Claude as hallucination judge
+# openai>=1.0.0                  # GPT-4 as alternative judge
+
+# ─── Utilities ────────────────────────────────────────────────────────────────
+tqdm>=4.66.0                     # Progress bars
+pyyaml>=6.0.0                    # Config files
+safetensors>=0.4.0               # Model save/load (.safetensors)
+huggingface-hub>=0.22.0          # HuggingFace Hub push/pull

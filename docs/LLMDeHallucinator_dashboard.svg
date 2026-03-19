@@ -1,0 +1,351 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+  <defs>
+    <clipPath id="scatter-clip"><rect x="0" y="0" width="440" height="260" rx="6"/></clipPath>
+    <clipPath id="bar1"><rect x="0" y="0" width="94" height="6"/></clipPath>
+    <clipPath id="bar2"><rect x="0" y="0" width="88" height="6"/></clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="820" fill="#F5F5F3"/>
+
+  <!-- Top bar -->
+  <rect width="1280" height="44" fill="#FFFFFF"/>
+  <line x1="0" y1="44" x2="1280" y2="44" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <!-- Logo dot -->
+  <circle cx="16" cy="22" r="5" fill="#E24B4A"/>
+  <text x="30" y="27" font-size="15" font-weight="600" fill="#111">LLMDeHallucinator</text>
+  <!-- Badges -->
+  <rect x="1020" y="12" width="90" height="20" rx="5" fill="#EAF3DE"/>
+  <text x="1065" y="25" font-size="11" font-weight="500" fill="#27500A" text-anchor="middle">Model loaded</text>
+  <rect x="1118" y="12" width="102" height="20" rx="5" fill="#E6F1FB"/>
+  <text x="1169" y="25" font-size="11" font-weight="500" fill="#0C447C" text-anchor="middle">GPU: A100 38.2 GB</text>
+  <rect x="1228" y="12" width="42" height="20" rx="5" fill="#FAEEDA"/>
+  <text x="1249" y="25" font-size="11" font-weight="500" fill="#633806" text-anchor="middle">Run #3</text>
+
+  <!-- ===== LEFT COLUMN ===== -->
+  <!-- Model panel -->
+  <rect x="10" y="54" width="220" height="128" rx="10" fill="#FFF" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <text x="22" y="73" font-size="10" font-weight="600" fill="#888" letter-spacing="0.7">MODEL</text>
+  <text x="22" y="91" font-size="11" fill="#666">Model</text>
+  <rect x="22" y="96" width="196" height="26" rx="6" fill="#F5F5F3" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="32" y="113" font-size="12" fill="#111">Llama 3.1 8B</text>
+  <text x="207" y="113" font-size="10" fill="#888">▾</text>
+  <text x="22" y="134" font-size="11" fill="#666">Device</text>
+  <rect x="22" y="139" width="196" height="26" rx="6" fill="#F5F5F3" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="32" y="156" font-size="12" fill="#111">CUDA (A100)</text>
+  <text x="207" y="156" font-size="10" fill="#888">▾</text>
+
+  <!-- Dataset panel -->
+  <rect x="10" y="190" width="220" height="196" rx="10" fill="#FFF" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <text x="22" y="209" font-size="10" font-weight="600" fill="#888" letter-spacing="0.7">DATASET</text>
+  <text x="22" y="227" font-size="11" fill="#666">Source</text>
+  <rect x="22" y="232" width="196" height="26" rx="6" fill="#F5F5F3" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="32" y="249" font-size="12" fill="#111">TruthfulQA</text>
+  <text x="207" y="249" font-size="10" fill="#888">▾</text>
+  <text x="22" y="270" font-size="11" fill="#666">Labeling</text>
+  <rect x="22" y="275" width="196" height="26" rx="6" fill="#F5F5F3" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="32" y="292" font-size="12" fill="#111">LLM-as-judge (Claude)</text>
+  <text x="207" y="292" font-size="10" fill="#888">▾</text>
+  <!-- Run button -->
+  <rect x="22" y="308" width="196" height="28" rx="7" fill="#185FA5"/>
+  <text x="120" y="326" font-size="12" font-weight="500" fill="#E6F1FB" text-anchor="middle">Run pipeline</text>
+  <!-- Load button -->
+  <rect x="22" y="342" width="196" height="26" rx="7" fill="#F5F5F3" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <text x="120" y="358" font-size="11" font-weight="500" fill="#111" text-anchor="middle">Load pre-generated</text>
+  <!-- Progress bars -->
+  <text x="22" y="378" font-size="11" fill="#666">Extracting activations</text>
+  <text x="214" y="378" font-size="11" fill="#666" text-anchor="end">68%</text>
+  <rect x="22" y="381" width="196" height="4" rx="2" fill="#EEE"/>
+  <rect x="22" y="381" width="133" height="4" rx="2" fill="#378ADD"/>
+
+  <!-- Stats panel -->
+  <rect x="10" y="394" width="220" height="116" rx="10" fill="#FFF" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <text x="22" y="413" font-size="10" font-weight="600" fill="#888" letter-spacing="0.7">STATS</text>
+  <rect x="22" y="420" width="92" height="42" rx="7" fill="#F5F5F3"/>
+  <text x="68" y="436" font-size="18" font-weight="600" fill="#E24B4A" text-anchor="middle">34.2%</text>
+  <text x="68" y="452" font-size="10" fill="#888" text-anchor="middle">Hallucination rate</text>
+  <rect x="120" y="420" width="92" height="42" rx="7" fill="#F5F5F3"/>
+  <text x="166" y="436" font-size="18" font-weight="600" fill="#111" text-anchor="middle">847</text>
+  <text x="166" y="452" font-size="10" fill="#888" text-anchor="middle">H-Neurons found</text>
+  <rect x="22" y="468" width="92" height="34" rx="7" fill="#F5F5F3"/>
+  <text x="68" y="480" font-size="16" font-weight="600" fill="#111" text-anchor="middle">16</text>
+  <text x="68" y="494" font-size="10" fill="#888" text-anchor="middle">Active layer</text>
+  <rect x="120" y="468" width="92" height="34" rx="7" fill="#F5F5F3"/>
+  <text x="166" y="480" font-size="16" font-weight="600" fill="#111" text-anchor="middle">0.71</text>
+  <text x="166" y="494" font-size="10" fill="#888" text-anchor="middle">Separation index</text>
+
+  <!-- ===== CENTER COLUMN ===== -->
+  <!-- Scatter panel -->
+  <rect x="240" y="54" width="790" height="352" rx="10" fill="#FFF" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <text x="254" y="76" font-size="12" font-weight="600" fill="#111">PaCMAP projection — activation space</text>
+  <!-- Layer pills -->
+  <rect x="830" y="60" width="32" height="20" rx="10" fill="#F5F5F3" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="846" y="74" font-size="10" fill="#666" text-anchor="middle">L8</text>
+  <rect x="867" y="60" width="34" height="20" rx="10" fill="#F5F5F3" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="884" y="74" font-size="10" fill="#666" text-anchor="middle">L12</text>
+  <rect x="906" y="60" width="34" height="20" rx="10" fill="#E6F1FB" stroke="#85B7EB" stroke-width="1"/>
+  <text x="923" y="74" font-size="10" fill="#0C447C" text-anchor="middle" font-weight="600">L16</text>
+  <rect x="945" y="60" width="34" height="20" rx="10" fill="#F5F5F3" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="962" y="74" font-size="10" fill="#666" text-anchor="middle">L20</text>
+  <rect x="984" y="60" width="34" height="20" rx="10" fill="#F5F5F3" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="1001" y="74" font-size="10" fill="#666" text-anchor="middle">L24</text>
+  <rect x="1023" y="60" width="30" height="20" rx="10" fill="#F5F5F3" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="1038" y="74" font-size="10" fill="#666" text-anchor="middle">All</text>
+
+  <!-- Scatter canvas area -->
+  <rect x="252" y="84" width="766" height="292" rx="8" fill="#F5F5F3"/>
+
+  <!-- Scatter dots - hallucination cluster (left) -->
+  <circle cx="380" cy="180" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="360" cy="200" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="400" cy="165" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="345" cy="215" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="415" cy="190" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="370" cy="155" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="430" cy="210" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="355" cy="240" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="390" cy="230" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="340" cy="170" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="420" cy="145" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="365" cy="260" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="445" cy="175" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="325" cy="195" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="410" cy="255" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="350" cy="135" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="460" cy="230" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="335" cy="250" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="480" cy="195" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="375" cy="125" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="395" cy="270" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="310" cy="220" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="440" cy="140" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="470" cy="260" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="320" cy="155" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="498" cy="215" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="300" cy="185" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="455" cy="120" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="290" cy="240" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+  <circle cx="510" cy="170" r="4" fill="rgba(226,75,74,0.75)" stroke="#A32D2D" stroke-width="0.7"/>
+
+  <!-- Scatter dots - correct cluster (right) -->
+  <circle cx="640" cy="155" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="660" cy="175" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="620" cy="170" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="675" cy="145" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="645" cy="195" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="610" cy="145" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="690" cy="170" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="630" cy="215" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="665" cy="130" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="700" cy="195" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="598" cy="185" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="715" cy="155" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="650" cy="220" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="680" cy="120" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="725" cy="175" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="615" cy="230" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="695" cy="210" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="580" cy="160" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="740" cy="145" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="635" cy="240" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="710" cy="125" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="755" cy="190" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="568" cy="200" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="720" cy="230" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="770" cy="160" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="600" cy="255" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="745" cy="215" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="785" cy="140" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="555" cy="175" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+  <circle cx="760" cy="250" r="4" fill="rgba(99,153,34,0.75)" stroke="#3B6D11" stroke-width="0.7"/>
+
+  <!-- Tooltip -->
+  <rect x="440" y="110" width="190" height="80" rx="8" fill="#FFF" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <text x="452" y="128" font-size="11" font-weight="600" fill="#E24B4A">Hallucination</text>
+  <text x="452" y="144" font-size="11" fill="#666">Q: Was Napoleon unusually short?</text>
+  <text x="452" y="158" font-size="11" fill="#111">A: Napoleon was only 1.57m...</text>
+  <text x="452" y="172" font-size="11" fill="#666">Neurons: L16:2847, L16:891</text>
+  <text x="452" y="184" font-size="11" fill="#666">Confidence: 0.94</text>
+
+  <!-- Legend -->
+  <circle cx="258" cy="386" r="4" fill="#E24B4A"/>
+  <text x="266" y="390" font-size="11" fill="#666">Hallucination (445)</text>
+  <circle cx="378" cy="386" r="4" fill="#639922"/>
+  <text x="386" y="390" font-size="11" fill="#666">Correct (372)</text>
+  <text x="1005" y="390" font-size="10" fill="#888" text-anchor="end">Scroll to zoom · Drag to pan · Hover for details</text>
+
+  <!-- Bottom center panels -->
+  <!-- H-Neurons panel -->
+  <rect x="240" y="416" width="388" height="224" rx="10" fill="#FFF" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <text x="254" y="435" font-size="10" font-weight="600" fill="#888" letter-spacing="0.7">TOP H-NEURONS — LAYER 16</text>
+  <!-- Neuron rows -->
+  <rect x="254" y="445" width="12" height="12" rx="3" fill="#E24B4A"/>
+  <text x="272" y="455" font-size="11" font-weight="500" fill="#111">L16 · N2847</text>
+  <rect x="360" y="449" width="100" height="6" rx="3" fill="#EEE"/>
+  <rect x="360" y="449" width="94" height="6" rx="3" fill="#E24B4A"/>
+  <text x="468" y="455" font-size="10" fill="#666">0.94</text>
+  <line x1="254" y1="462" x2="614" y2="462" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+  <rect x="254" y="469" width="12" height="12" rx="3" fill="#E24B4A"/>
+  <text x="272" y="479" font-size="11" font-weight="500" fill="#111">L16 · N891</text>
+  <rect x="360" y="473" width="100" height="6" rx="3" fill="#EEE"/>
+  <rect x="360" y="473" width="88" height="6" rx="3" fill="#E24B4A"/>
+  <text x="468" y="479" font-size="10" fill="#666">0.88</text>
+  <line x1="254" y1="486" x2="614" y2="486" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+  <rect x="254" y="493" width="12" height="12" rx="3" fill="#E24B4A"/>
+  <text x="272" y="503" font-size="11" font-weight="500" fill="#111">L14 · N3312</text>
+  <rect x="360" y="497" width="100" height="6" rx="3" fill="#EEE"/>
+  <rect x="360" y="497" width="81" height="6" rx="3" fill="#EF9F27"/>
+  <text x="468" y="503" font-size="10" fill="#666">0.81</text>
+  <line x1="254" y1="510" x2="614" y2="510" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+  <rect x="254" y="517" width="12" height="12" rx="3" fill="#EEE" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="272" y="527" font-size="11" font-weight="500" fill="#111">L18 · N4421</text>
+  <rect x="360" y="521" width="100" height="6" rx="3" fill="#EEE"/>
+  <rect x="360" y="521" width="72" height="6" rx="3" fill="#EF9F27"/>
+  <text x="468" y="527" font-size="10" fill="#666">0.72</text>
+  <line x1="254" y1="534" x2="614" y2="534" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+  <rect x="254" y="541" width="12" height="12" rx="3" fill="#EEE" stroke="rgba(0,0,0,0.10)" stroke-width="1"/>
+  <text x="272" y="551" font-size="11" font-weight="500" fill="#111">L12 · N567</text>
+  <rect x="360" y="545" width="100" height="6" rx="3" fill="#EEE"/>
+  <rect x="360" y="545" width="61" height="6" rx="3" fill="#5DCAA5"/>
+  <text x="468" y="551" font-size="10" fill="#666">0.61</text>
+
+  <!-- Suppression slider area -->
+  <text x="254" y="577" font-size="11" fill="#666">Suppression factor</text>
+  <rect x="356" y="569" width="196" height="6" rx="3" fill="#EEE"/>
+  <rect x="356" y="569" width="78" height="6" rx="3" fill="#185FA5"/>
+  <circle cx="434" cy="572" r="6" fill="#185FA5"/>
+  <text x="560" y="577" font-size="11" font-weight="600" fill="#111" text-anchor="end">20%</text>
+  <!-- Apply button -->
+  <rect x="254" y="588" width="356" height="30" rx="7" fill="#185FA5"/>
+  <text x="432" y="607" font-size="12" font-weight="500" fill="#E6F1FB" text-anchor="middle">Apply suppression</text>
+
+  <!-- Before/After panel -->
+  <rect x="638" y="416" width="392" height="224" rx="10" fill="#FFF" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <text x="652" y="435" font-size="10" font-weight="600" fill="#888" letter-spacing="0.7">BEFORE / AFTER EVALUATION</text>
+  <!-- Header row -->
+  <text x="652" y="453" font-size="11" fill="#888">Metric</text>
+  <text x="820" y="453" font-size="11" fill="#888" text-anchor="middle">Before</text>
+  <text x="888" y="453" font-size="11" fill="#888" text-anchor="middle">After</text>
+  <text x="1010" y="453" font-size="11" fill="#888" text-anchor="end">Delta</text>
+  <line x1="652" y1="458" x2="1018" y2="458" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+  <!-- Data rows -->
+  <text x="652" y="474" font-size="11" fill="#111">Hallucination rate</text>
+  <text x="820" y="474" font-size="11" fill="#111" text-anchor="middle">34.2%</text>
+  <text x="888" y="474" font-size="11" fill="#111" text-anchor="middle">21.7%</text>
+  <text x="1010" y="474" font-size="11" fill="#27500A" font-weight="600" text-anchor="end">-12.5%</text>
+  <line x1="652" y1="480" x2="1018" y2="480" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+  <text x="652" y="496" font-size="11" fill="#111">TruthfulQA score</text>
+  <text x="820" y="496" font-size="11" fill="#111" text-anchor="middle">0.61</text>
+  <text x="888" y="496" font-size="11" fill="#111" text-anchor="middle">0.74</text>
+  <text x="1010" y="496" font-size="11" fill="#27500A" font-weight="600" text-anchor="end">+0.13</text>
+  <line x1="652" y1="502" x2="1018" y2="502" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+  <text x="652" y="518" font-size="11" fill="#111">HaluEval score</text>
+  <text x="820" y="518" font-size="11" fill="#111" text-anchor="middle">0.58</text>
+  <text x="888" y="518" font-size="11" fill="#111" text-anchor="middle">0.70</text>
+  <text x="1010" y="518" font-size="11" fill="#27500A" font-weight="600" text-anchor="end">+0.12</text>
+  <line x1="652" y1="524" x2="1018" y2="524" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+  <text x="652" y="540" font-size="11" fill="#111">MMLU accuracy</text>
+  <text x="820" y="540" font-size="11" fill="#111" text-anchor="middle">67.4%</text>
+  <text x="888" y="540" font-size="11" fill="#111" text-anchor="middle">66.8%</text>
+  <text x="1010" y="540" font-size="11" fill="#A32D2D" font-weight="600" text-anchor="end">-0.6%</text>
+  <line x1="652" y1="546" x2="1018" y2="546" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+  <text x="652" y="562" font-size="11" fill="#111">Separation index</text>
+  <text x="820" y="562" font-size="11" fill="#111" text-anchor="middle">0.71</text>
+  <text x="888" y="562" font-size="11" fill="#111" text-anchor="middle">0.84</text>
+  <text x="1010" y="562" font-size="11" fill="#27500A" font-weight="600" text-anchor="end">+0.13</text>
+  <line x1="652" y1="568" x2="1018" y2="568" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+  <text x="652" y="584" font-size="11" fill="#111">Neurons edited</text>
+  <text x="820" y="584" font-size="11" fill="#111" text-anchor="middle">—</text>
+  <text x="888" y="584" font-size="11" fill="#111" text-anchor="middle">3</text>
+  <text x="1010" y="584" font-size="11" fill="#888" text-anchor="end">L14, L16×2</text>
+
+  <!-- Export buttons -->
+  <rect x="652" y="596" width="188" height="30" rx="7" fill="#185FA5"/>
+  <text x="746" y="615" font-size="12" font-weight="500" fill="#E6F1FB" text-anchor="middle">Export model</text>
+  <rect x="846" y="596" width="172" height="30" rx="7" fill="#F5F5F3" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <text x="932" y="615" font-size="11" font-weight="500" fill="#111" text-anchor="middle">Download report</text>
+
+  <!-- ===== RIGHT COLUMN ===== -->
+  <!-- Layer heatmap panel -->
+  <rect x="1050" y="54" width="220" height="232" rx="10" fill="#FFF" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <text x="1062" y="73" font-size="10" font-weight="600" fill="#888" letter-spacing="0.7">LAYER HEATMAP</text>
+  <text x="1062" y="91" font-size="10" fill="#888">Layer</text>
+  <text x="1256" y="91" font-size="10" fill="#888" text-anchor="end">H-Neurons</text>
+
+  <!-- L4 -->
+  <text x="1062" y="109" font-size="11" fill="#666">L4</text>
+  <rect x="1082" y="102" width="148" height="8" rx="2" fill="#EEE"/>
+  <rect x="1082" y="102" width="18" height="8" rx="2" fill="#B5D4F4"/>
+  <text x="1258" y="109" font-size="10" fill="#888" text-anchor="end">14</text>
+  <!-- L8 -->
+  <text x="1062" y="127" font-size="11" fill="#666">L8</text>
+  <rect x="1082" y="120" width="148" height="8" rx="2" fill="#EEE"/>
+  <rect x="1082" y="120" width="56" height="8" rx="2" fill="#85B7EB"/>
+  <text x="1258" y="127" font-size="10" fill="#888" text-anchor="end">87</text>
+  <!-- L12 -->
+  <text x="1062" y="145" font-size="11" fill="#666">L12</text>
+  <rect x="1082" y="138" width="148" height="8" rx="2" fill="#EEE"/>
+  <rect x="1082" y="138" width="90" height="8" rx="2" fill="#378ADD"/>
+  <text x="1258" y="145" font-size="10" fill="#888" text-anchor="end">192</text>
+  <!-- L16 highlighted -->
+  <rect x="1060" y="152" width="200" height="20" rx="5" fill="#E6F1FB"/>
+  <text x="1062" y="166" font-size="11" fill="#0C447C" font-weight="600">L16</text>
+  <rect x="1082" y="157" width="148" height="8" rx="2" fill="#B5D4F4"/>
+  <rect x="1082" y="157" width="139" height="8" rx="2" fill="#185FA5"/>
+  <text x="1258" y="166" font-size="10" fill="#0C447C" font-weight="600" text-anchor="end">341</text>
+  <!-- L20 -->
+  <text x="1062" y="184" font-size="11" fill="#666">L20</text>
+  <rect x="1082" y="177" width="148" height="8" rx="2" fill="#EEE"/>
+  <rect x="1082" y="177" width="107" height="8" rx="2" fill="#378ADD"/>
+  <text x="1258" y="184" font-size="10" fill="#888" text-anchor="end">213</text>
+  <!-- L24 -->
+  <text x="1062" y="202" font-size="11" fill="#666">L24</text>
+  <rect x="1082" y="195" width="148" height="8" rx="2" fill="#EEE"/>
+  <rect x="1082" y="195" width="46" height="8" rx="2" fill="#85B7EB"/>
+  <text x="1258" y="202" font-size="10" fill="#888" text-anchor="end">64</text>
+  <!-- L28 -->
+  <text x="1062" y="220" font-size="11" fill="#666">L28</text>
+  <rect x="1082" y="213" width="148" height="8" rx="2" fill="#EEE"/>
+  <rect x="1082" y="213" width="13" height="8" rx="2" fill="#B5D4F4"/>
+  <text x="1258" y="220" font-size="10" fill="#888" text-anchor="end">8</text>
+
+  <text x="1062" y="272" font-size="10" fill="#888">Peak signal L14–L18</text>
+  <text x="1062" y="284" font-size="10" fill="#888">— consistent with literature</text>
+
+  <!-- AI Neuron Analysis panel -->
+  <rect x="1050" y="296" width="220" height="148" rx="10" fill="#FFF" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <text x="1062" y="315" font-size="10" font-weight="600" fill="#888" letter-spacing="0.7">AI NEURON ANALYSIS</text>
+  <rect x="1062" y="323" width="196" height="50" rx="6" fill="#F5F5F3"/>
+  <text x="1072" y="338" font-size="11" font-weight="600" fill="#0C447C">L16 · N2847</text>
+  <text x="1072" y="352" font-size="10" fill="#444">encodes over-compliance —</text>
+  <text x="1072" y="364" font-size="10" fill="#444">fires under high uncertainty.</text>
+  <rect x="1062" y="381" width="196" height="50" rx="6" fill="#F5F5F3"/>
+  <text x="1072" y="396" font-size="11" font-weight="600" fill="#0C447C">L16 · N891</text>
+  <text x="1072" y="410" font-size="10" fill="#444">activates on named-entity</text>
+  <text x="1072" y="422" font-size="10" fill="#444">queries with missing signal.</text>
+
+  <!-- Export panel -->
+  <rect x="1050" y="454" width="220" height="114" rx="10" fill="#FFF" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+  <text x="1062" y="473" font-size="10" font-weight="600" fill="#888" letter-spacing="0.7">EXPORT</text>
+  <text x="1062" y="493" font-size="11" fill="#666">Edited model (.safetensors)</text>
+  <text x="1258" y="493" font-size="11" fill="#27500A" font-weight="500" text-anchor="end">Ready</text>
+  <line x1="1062" y1="499" x2="1258" y2="499" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+  <text x="1062" y="515" font-size="11" fill="#666">Audit report (PDF)</text>
+  <text x="1258" y="515" font-size="11" fill="#27500A" font-weight="500" text-anchor="end">Ready</text>
+  <line x1="1062" y1="521" x2="1258" y2="521" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+  <text x="1062" y="537" font-size="11" fill="#666">Dataset (labeled CSV)</text>
+  <text x="1258" y="537" font-size="11" fill="#27500A" font-weight="500" text-anchor="end">Ready</text>
+  <line x1="1062" y1="543" x2="1258" y2="543" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+  <text x="1062" y="559" font-size="11" fill="#666">HuggingFace Hub push</text>
+  <text x="1258" y="559" font-size="11" fill="#888" text-anchor="end">Optional</text>
+
+</svg>
