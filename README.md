@@ -492,6 +492,23 @@ CETT scores computed for a given model are stored under that model's directory a
 | Suppression factor changed | Evaluation only | Everything upstream |
 | Neuron selection changed | Evaluation only | Everything upstream |
 
+### Force Recalculate
+
+Every pipeline step has a **Recalculate** button that discards the cached result for that step and all steps downstream, then reruns from scratch. This is useful when:
+
+- A new version of the dataset is available and CETT scores need refreshing
+- Detection parameters were changed and a clean rerun is preferred over incremental updates
+- The researcher suspects a cached result is stale or corrupted
+
+```
+[ ✓ CETT cached — loaded ]  [ ↺ Recalculate ]
+[ ✓ Detection cached ]       [ ↺ Recalculate ]
+[ ✓ PaCMAP cached ]          [ ↺ Recalculate ]
+[ – Evaluation not run ]     [ ▶ Run ]
+```
+
+Recalculating a step automatically invalidates all downstream steps but leaves upstream cache intact. Recalculating CETT discards detection, PaCMAP, and evaluation — but not the dataset or weight statistics. The previous cached result is moved to a timestamped backup folder rather than deleted, so it can be restored if needed.
+
 ### Storage format rationale
 
 | Format | Used for | Why |
