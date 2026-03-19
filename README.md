@@ -120,6 +120,14 @@ Selected the latent that maximises this score across all entity types without an
 
 ---
 
+### Adaptive Activation Cancellation — arXiv:2603.10195, 2026
+
+Directly extends H-Neurons with a signal-processing-style intervention. Rather than editing model weights offline, it identifies "H-Nodes" (equivalent to H-Neurons) via linear probing and subtracts their contribution from the residual stream at inference time using forward hooks — a real-time cancellation signal applied during generation. Key advantages over weight editing: fully reversible, adjustable per-session, and requires no model export.
+
+*Relevance: the closest published relative to LLMDeHallucinator. Validates the hook-based activation steering approach listed in our roadmap. The offline detection pipeline (CETT → Boruta → LightGBM) and the full GUI workflow remain our contribution; this paper informs the suppression strategy.*
+
+---
+
 ### Key Hypothesis
 
 > H-Neurons concentrated in layers 8–20 are sufficient for hallucination detection and suppression, with a MMLU accuracy delta below 2% at a 20% suppression factor.
@@ -837,16 +845,25 @@ Save the edited model as `.safetensors`. Download the PDF audit report. Optional
 
 ## Limitations and Known Challenges
 
-**Labeling quality**  
-Simple exact-match labeling against TriviaQA/TruthfulQA only captures factual hallucinations. LLM-as-judge mode extends coverage but adds latency and cost. Non-factual hallucinations (false reasoning, confabulation) remain harder to label automatically.
+**Labeling quality**
+Simple exact-match labeling against TriviaQA/TruthfulQA only captures factual hallucinations. LLM-as-judge mode extends coverage but adds latency and cost.
 
-**Suppression trade-off**  
+**Hallucination type coverage — dataset gap, not a technical limit**
+The pipeline currently targets factual over-compliance hallucinations. Reasoning errors (multi-step math, logic) and code generation hallucinations are not out of scope technically — the CETT pipeline requires only a binary label (correct / wrong). They could be supported by adding GSM8K or HumanEval as benchmarks. This is a dataset extension, not a redesign.
+
+**Long-context hallucinations — genuinely different problem**
+Long-context hallucinations arise when the model fails to retrieve information already present in the context window. That is an attention mechanism problem, not an FFN neuron over-compliance problem. H-Neurons encode parametric knowledge in FFN layers; they are not the mechanism behind context-retrieval failures. Long-context is architecturally out of scope.
+
+**Attention heads not covered**
+The pipeline operates exclusively on FFN neurons. Attention heads also encode truthfulness — Li et al. (NeurIPS 2023) showed mass-mean-shift in attention activations improves TruthfulQA by 13–42 pp. Combining FFN neuron suppression with attention head steering is a natural extension but is not currently planned.
+
+**Suppression trade-off**
 The original H-Neurons paper notes that simple weight suppression can reduce model helpfulness. LLMDeHallucinator mitigates this with gradual iterative suppression and MMLU monitoring, but the fundamental tension between compliance and truthfulness is an open research problem.
 
-**Model coverage**  
-Tested on GPT-2 (development) and Llama 3.1 8B (primary target). H-Neuron patterns may differ across architectures. Contributions testing on Mistral, Phi, Gemma welcome.
+**Model coverage and scalability**
+Tested on GPT-2 (development) and Llama 3.1 8B (primary target). H-Neuron patterns may differ across architectures. Scalability to 70B+ models is unproven in practice — activation extraction and CETT computation across all layers at that parameter count has not been validated. Contributions testing on Mistral, Phi, Gemma welcome.
 
-**GPU requirement**  
+**GPU requirement**
 Models above 3B parameters require a GPU with 16GB+ VRAM for comfortable use. Google Colab Pro (A100) or Vast.ai are recommended for 7B/8B models.
 
 ---
