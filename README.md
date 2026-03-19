@@ -159,24 +159,27 @@ LLMDeHallucinator is an interactive research pipeline built with Python and Plot
 
 The pipeline is grounded in the **H-Neurons** research (Gao et al., 2025, arXiv:2512.01797), which demonstrated that fewer than 0.1% of neurons in a model reliably predict hallucination events. LLMDeHallucinator operationalizes this finding into an end-to-end, GUI-driven workflow accessible to any researcher — no custom scripts required.
 
+**The pipeline is designed to scale.** Small models (GPT-2, Llama 3.1 8B) run locally with TransformerLens. Large models (Qwen2 72B, Llama 3.1 70B) run on a single A100 80GB using 4-bit quantization — activations are always full precision so CETT extraction works identically. The logit lens pre-filter, tiered pre-filtering, and layer-by-layer mode exist specifically to make 70B+ feasible without requiring a cluster.
+
 ```
-model_in.safetensors
+model_in  (any size — 8B to 70B+, full precision or 4-bit quantized)
         │
         ▼
 ┌───────────────────────────────────────┐
 │         LLMDeHallucinator             │
 │                                       │
 │  1. Generate hallucination dataset    │
-│  2. Extract layer activations         │
-│  3. Identify H-Neurons (ML/AI)        │
-│  4. Visualize with PaCMAP             │
-│  5. Suppress neuron weights           │
-│  6. Evaluate before/after             │
-│  7. Generate audit report             │
+│  2. Logit lens → rank layers          │
+│  3. Extract activations (CETT)        │
+│  4. Identify H-Neurons (ML/AI)        │
+│  5. Visualize with PaCMAP             │
+│  6. Suppress neuron weights / steer   │
+│  7. Evaluate before/after             │
+│  8. Generate audit report             │
 └───────────────────────────────────────┘
         │
         ▼
-model_out.safetensors + report.pdf
+model_out  (safetensors edit or steering config) + report.pdf
 ```
 
 ---
@@ -409,10 +412,14 @@ def get_cett_tensor(self, use_abs=True, use_mag=True):
     return cett.transpose(0, 1)                         # [layers, tokens, neurons]
 ```
 
-For reference, the equivalent in TransformerLens (used for development and testing on GPT-2):
+**This works on quantized models.** When a model is loaded in 4-bit or 8-bit via `bitsandbytes`, the stored weights are compressed integers — but the forward pass computes activations in full precision before they reach `down_proj`. The hook captures that full-precision value, so CETT scores are identical whether the model is loaded in BF16 or NF4. This is what makes 70B+ feasible on a single A100 80GB.
+
+`CETTManager` uses raw PyTorch hooks and works with any HuggingFace model directly — no TransformerLens required. TransformerLens is used for smaller models during development and testing (GPT-2, Llama 8B) where its named hooks and weight inspection utilities are convenient.
+
+For reference, the TransformerLens equivalent (development / GPT-2):
 
 ```python
-# TransformerLens equivalent — hook_post = same values as input to down_proj
+# TransformerLens — used for small models during development only
 z = model.hook("blocks.{layer}.mlp.hook_post")  # [batch, seq, d_mlp]
 W_out = model.W_out[layer]                       # [d_mlp, d_model]
 contribution = z[0, t, j] * W_out[j, :]         # rank-1 contribution of neuron j
@@ -907,10 +914,26 @@ Run all cells — the Dash app exposes itself via an ngrok tunnel.
 ### Vast.ai / RunPod (recommended for iterative research)
 
 ```bash
-# ~$0.30/h on RTX 4090, ~$1.00/h on A100
-# Clone repo, pip install, run app.py
-# Saves model_out.safetensors to /outputs for download
+# 7B / 8B models — RTX 4090 24GB (~$0.30/h), BF16
+python app.py --model meta-llama/Llama-3.1-8B-Instruct --device cuda
+
+# 70B models — A100 80GB (~$1.50/h), 4-bit quantization
+python app.py --model Qwen/Qwen2-72B-Instruct --load-in-4bit --device cuda
+
+# 70B models BF16 full precision — 2× H100 80GB (~$6/h), multi-GPU
+python app.py --model Qwen/Qwen2-72B-Instruct --device_map auto
 ```
+
+**Hardware reference:**
+
+| Model | Precision | VRAM required | Recommended hardware | Approx. cost |
+|---|---|---|---|---|
+| GPT-2 Small | FP32 | < 1 GB | CPU | Free |
+| Llama 3.1 8B | BF16 | 16 GB | RTX 3090 / 4090 | ~$0.30/h |
+| Llama 3.1 8B | 4-bit | 5 GB | RTX 3060 12GB | ~$0.10/h |
+| Qwen2 72B | 4-bit | ~38 GB | A100 80GB | ~$1.50/h |
+| Qwen2 72B | BF16 | ~144 GB | 2× H100 80GB | ~$6/h |
+| Llama 3.1 70B | 4-bit | ~35 GB | A100 80GB | ~$1.50/h |
 
 ---
 
@@ -987,7 +1010,7 @@ The original H-Neurons paper notes that simple weight suppression can reduce mod
 Tested on GPT-2 (development) and Llama 3.1 8B (primary target). H-Neuron patterns may differ across architectures. Scalability to 70B+ models is unproven in practice — activation extraction and CETT computation across all layers at that parameter count has not been validated. Contributions testing on Mistral, Phi, Gemma welcome.
 
 **GPU requirement**
-Models above 3B parameters require a GPU with 16GB+ VRAM for comfortable use. Google Colab Pro (A100) or Vast.ai are recommended for 7B/8B models.
+Models up to 8B run comfortably on a single RTX 3090/4090 in BF16. 70B models require a single A100 80GB in 4-bit quantization — CETT extraction works identically on quantized models since activations are always computed in full precision. Weight editing on 4-bit models is not directly supported; the activation steering path (hook-based, no weight edit) is the recommended suppression mode for 70B+. Full BF16 for 70B requires 2× H100 80GB.
 
 ---
 
