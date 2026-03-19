@@ -868,6 +868,9 @@ Models above 3B parameters require a GPU with 16GB+ VRAM for comfortable use. Go
 - [ ] HuggingFace Hub integration
 - [ ] Support for Mistral, Phi-3, Gemma
 - [ ] SAE-based detection (monosemantic feature decomposition)
+- [ ] Inference-time hallucination detector — use identified H-Neurons as live monitors during inference; each response gets a hallucination probability score without any weight modification *(post-detection)*
+- [ ] Activation steering — hook-based suppression as a reversible alternative to permanent weight editing; subtract H-Neuron contributions from the residual stream at inference time, no safetensors export required *(post-detection)*
+- [ ] Live suppression safety dashboard — real-time trade-off chart (hallucination rate vs MMLU delta) as suppression factor is adjusted; automatic rollback alert at user-defined degradation threshold *(post-detection)*
 
 ---
 
