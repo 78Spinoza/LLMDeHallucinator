@@ -130,9 +130,15 @@ Directly extends H-Neurons with a signal-processing-style intervention. Rather t
 
 ### Key Hypothesis
 
-> H-Neurons concentrated in layers 8–20 are sufficient for hallucination detection and suppression, with a MMLU accuracy delta below 2% at a 20% suppression factor.
+> A small set of H-Neurons — likely 50–200 per model, concentrated in middle layers — is sufficient for meaningful hallucination suppression across model scales from 8B to 405B, with a general capability delta (MMLU) below 2%.
 
 This hypothesis is testable within the LLMDeHallucinator pipeline and represents a concrete contribution beyond the original H-Neurons paper, which stopped short of building a production suppression tool.
+
+If it holds at 72B+ scale the implication is significant: a model already deployed in production could be made substantially more reliable — with no retraining, no RLHF, no architecture changes, and no prompt engineering — by editing fewer than 200 weights out of tens of billions. This is theoretically possible given the paper's causal validation results, and LLMDeHallucinator is built to test it rigorously.
+
+**Community H-Neuron maps**
+
+Once the pipeline has run on a model, the results are fully shareable. A researcher who identifies and validates H-Neurons for Llama 3.1 70B can publish their `h_neurons.json` — the confirmed neuron list, SHAP scores, and suppression factors. Another researcher can load that file directly and apply the suppression without running the full detection pipeline, on any hardware that can load the model. This is analogous to sharing LoRA weights, but for hallucination correction specifically.
 
 ---
 
@@ -188,12 +194,22 @@ model_out  (safetensors edit or steering config) + report.pdf
 
 Large language models hallucinate. Existing mitigation strategies — RAG, RLHF, prompt engineering — treat the symptom rather than the cause. Recent mechanistic interpretability research has shown that hallucination is not diffuse across the entire model; it is concentrated in a small, identifiable subset of feed-forward neurons that encode an **over-compliance bias**: the tendency to produce a confident-sounding answer even when the model has no reliable knowledge.
 
+The scale of this finding matters. In a 72B model, fewer than 0.1% of neurons means at most ~720 per layer — and the H-Neurons paper found the signal concentrates even more tightly in practice. The real target is likely **50–200 neurons per model**. If suppressing those neurons reduces hallucination by 30–40% while keeping general capability intact, the practical implications are substantial:
+
+- A 72B model running in production today could be meaningfully improved **without any retraining**
+- No fine-tuning dataset, no RLHF pipeline, no GPU cluster — just surgical edits to a small number of weights
+- The edited model is still the same model at full parameter count — not a distilled or quantization-degraded version
+- Results are shareable: publish the neuron map, anyone can apply the fix
+
+This is theoretically grounded in the paper's causal validation results. LLMDeHallucinator is built to test it at production scale.
+
 LLMDeHallucinator makes it possible to:
 
 - **See** exactly where hallucinations live inside the model, layer by layer
 - **Understand** which neurons are responsible and why, using AI-assisted classification
 - **Fix** the problem by surgically reducing neuron weights rather than retraining
 - **Verify** that the edit improved hallucination rates without degrading general capability
+- **Share** the results — publish H-Neuron maps so others can apply the fix without rerunning the full pipeline
 
 ---
 
