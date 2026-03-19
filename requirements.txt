@@ -36,6 +36,11 @@ reportlab>=4.0.0                 # PDF audit report generation
 anthropic>=0.25.0                # Claude as hallucination judge
 # openai>=1.0.0                  # GPT-4 as alternative judge
 
+# ─── Session & Cache ──────────────────────────────────────────────────────────
+h5py>=3.11.0                    # HDF5 storage for CETT score matrices
+pyarrow>=14.0.0                 # Parquet read/write for tabular cache artifacts
+diskcache>=5.6.0                # LRU disk cache for intermediate computations
+
 # ─── Utilities ────────────────────────────────────────────────────────────────
 tqdm>=4.66.0                     # Progress bars
 pyyaml>=6.0.0                    # Config files

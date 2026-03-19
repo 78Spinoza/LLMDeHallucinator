@@ -389,11 +389,117 @@ LLMDeHallucinator/
 ├── data/
 │   └── pregenerated/         # Pre-labeled hallucination datasets
 │
+├── cache/
+│   └── {model_id}/           # Top-level directory per model (e.g. llama-3.1-8b)
+│       └── {session_id}/     # One sub-directory per run (dataset + date)
+│           ├── session.json      # Session metadata: model, dataset, config, timestamps
+│       ├── dataset.parquet       # Labeled prompts and responses (correct / hallucinating)
+│       ├── cett/
+│       │   ├── correct.h5        # CETT scores — correct prompts  [n_neurons × n_correct]
+│       │   └── halluc.h5         # CETT scores — hallucinating prompts [n_neurons × n_halluc]
+│       ├── features.parquet      # Full feature set per neuron (all contrast + static features)
+│       ├── detection/
+│       │   ├── boruta.json       # Boruta confirmed / rejected neuron lists
+│       │   ├── lightgbm.json     # LightGBM scores + SHAP values per neuron
+│       │   └── rankings.parquet  # Final ranked neuron list with all scores
+│       ├── pacmap/
+│       │   ├── coords_2d.npy     # PaCMAP 2D projection coordinates
+│       │   └── coords_3d.npy     # PaCMAP 3D projection coordinates
+│       ├── h_neurons.json        # H-Neuron selection state (see below)
+│       └── evaluation/
+│           ├── before.json       # Pre-suppression benchmark metrics
+│           └── after.json        # Post-suppression benchmark metrics
+│
 ├── tests/
 │   └── test_pipeline.py      # Unit tests (GPT-2 Small, CPU)
 │
 └── requirements.txt
 ```
+
+---
+
+## Session & Cache Management
+
+Computing CETT scores across thousands of neurons and hundreds of prompts is expensive. Running it every time a researcher adjusts the suppression factor or tweaks the neuron selection would make the tool unusable. Every computed artifact is therefore persisted to disk under `cache/{session_id}/` and reloaded on subsequent runs — no recomputation unless the source data or model changes.
+
+### What is cached and when
+
+| Artifact | File | Computed once when |
+|---|---|---|
+| Labeled dataset (correct / halluc prompts) | `dataset.parquet` | Dataset step completes |
+| CETT scores — correct prompts | `cett/correct.h5` | Activation extraction completes |
+| CETT scores — hallucinating prompts | `cett/halluc.h5` | Activation extraction completes |
+| Full feature set per neuron | `features.parquet` | Feature engineering completes |
+| Boruta results | `detection/boruta.json` | Boruta run completes |
+| LightGBM scores + SHAP values | `detection/lightgbm.json` | LightGBM run completes |
+| Ranked neuron list | `detection/rankings.parquet` | Detection completes |
+| PaCMAP 2D / 3D coordinates | `pacmap/coords_2d.npy` | PaCMAP projection completes |
+| H-Neuron selection state | `h_neurons.json` | Updated on every change |
+| Evaluation results | `evaluation/before.json` / `after.json` | Evaluation runs complete |
+
+On startup the UI shows which cache artifacts already exist for the current session and skips straight to the first uncompleted step.
+
+### H-Neuron selection state — `h_neurons.json`
+
+This file tracks the full history of the neuron selection, including manual researcher overrides:
+
+```json
+{
+  "session_id": "llama-3.1-8b_2025-01-15",
+  "model": "meta-llama/Llama-3.1-8B",
+  "auto_detected": [
+    {"layer": 12, "neuron": 847, "score": 0.94, "cohen_d": 3.21}
+  ],
+  "manually_added": [
+    {"layer": 12, "neuron": 1203, "score": 0.61, "reason": "fires on halluc sub-cluster in PaCMAP"}
+  ],
+  "manually_removed": [
+    {"layer": 15, "neuron": 302, "score": 0.88, "reason": "false positive — fires on code tokens"}
+  ],
+  "final_selection": [847, 1203, ...],
+  "suppression_factors": {
+    "12_847": 0.20,
+    "12_1203": 0.15
+  },
+  "last_modified": "2025-01-15T14:23:11Z"
+}
+```
+
+Every manual add, remove, and suppression factor change is written immediately. The researcher can undo any change, reload a previous selection state, or export the selection for use in a different session.
+
+### Cache structure — per model, per session
+
+```
+cache/
+├── llama-3.1-8b/
+│   ├── truthfulqa_2025-01-15/    ← session 1
+│   └── halu-eval_2025-01-22/     ← session 2 (different dataset, same model)
+├── mistral-7b/
+│   └── truthfulqa_2025-01-18/
+└── gpt2/
+    └── truthfulqa_2025-01-10/    ← dev run
+```
+
+CETT scores computed for a given model are stored under that model's directory and **reused across sessions** that use the same model — even with a different dataset. This means if you run TruthfulQA and then HaluEval on the same model, the `w_out_norm` and weight statistics are computed only once. Only the prompt-level CETT scores (which depend on the dataset) are recomputed.
+
+### Cache invalidation rules
+
+| What changed | What is invalidated | What is reused |
+|---|---|---|
+| Different model | Everything | Nothing |
+| Same model, different dataset | Dataset, CETT scores, features, detection, PaCMAP | Weight statistics (`w_out_norm`, ranks) |
+| Same model + dataset, different detection params | Detection results, PaCMAP, evaluation | CETT scores, features |
+| Suppression factor changed | Evaluation only | Everything upstream |
+| Neuron selection changed | Evaluation only | Everything upstream |
+
+### Storage format rationale
+
+| Format | Used for | Why |
+|---|---|---|
+| HDF5 (`.h5`) | CETT score matrices | Efficient columnar access to large float arrays; supports partial reads by neuron or by prompt |
+| Parquet | Tabular data (dataset, features, rankings) | Columnar, compressed, fast pandas load |
+| NumPy (`.npy`) | PaCMAP coordinates | Simple, fast, small |
+| JSON | Selection state, detection results, evaluation metrics | Human-readable, easy to inspect and version |
 
 ---
 
