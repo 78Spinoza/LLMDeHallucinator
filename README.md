@@ -926,14 +926,75 @@ python app.py --model Qwen/Qwen2-72B-Instruct --device_map auto
 
 **Hardware reference:**
 
-| Model | Precision | VRAM required | Recommended hardware | Approx. cost |
-|---|---|---|---|---|
-| GPT-2 Small | FP32 | < 1 GB | CPU | Free |
-| Llama 3.1 8B | BF16 | 16 GB | RTX 3090 / 4090 | ~$0.30/h |
-| Llama 3.1 8B | 4-bit | 5 GB | RTX 3060 12GB | ~$0.10/h |
-| Qwen2 72B | 4-bit | ~38 GB | A100 80GB | ~$1.50/h |
-| Qwen2 72B | BF16 | ~144 GB | 2× H100 80GB | ~$6/h |
-| Llama 3.1 70B | 4-bit | ~35 GB | A100 80GB | ~$1.50/h |
+| Model | Type | Precision | VRAM required | Recommended hardware | Approx. cost |
+|---|---|---|---|---|---|
+| GPT-2 Small | Dense | FP32 | < 1 GB | CPU | Free |
+| Llama 3.1 8B | Dense | BF16 | 16 GB | RTX 3090 / 4090 | ~$0.30/h |
+| Llama 3.1 8B | Dense | 4-bit | 5 GB | RTX 3060 12GB | ~$0.10/h |
+| Mistral 7B | Dense | BF16 | 14 GB | RTX 3090 / 4090 | ~$0.30/h |
+| Qwen2.5 72B | Dense | 4-bit | ~38 GB | A100 80GB | ~$1.50/h |
+| Llama 3.1 70B | Dense | 4-bit | ~35 GB | A100 80GB | ~$1.50/h |
+| Mixtral 8×22B | MoE | 4-bit | ~65 GB | 2× A100 40GB | ~$3/h |
+| Qwen2.5 72B | Dense | BF16 | ~144 GB | 2× H100 80GB | ~$6/h |
+| DeepSeek V3/R1 | MoE | 4-bit | ~180 GB | 3× A100 80GB | ~$5/h |
+| Llama 3.1 405B | Dense | 4-bit | ~202 GB | 3× A100 80GB | ~$5/h |
+| Llama 3.1 405B | Dense | BF16 | ~810 GB | 10× A100 80GB | ~$15/h |
+
+### Large Model Deployment — 70B to 405B+
+
+**Multi-GPU with `device_map="auto"`**
+
+`accelerate` distributes layers across all available GPUs automatically. The pipeline's PyTorch forward hooks fire on whichever device each layer lives on — activations are collected and moved to CPU for aggregation. This requires a small addition to `CETTManager`: ensure all captured tensors are moved to a common device before stacking.
+
+```bash
+# 405B on 3× A100 80GB — accelerate handles layer distribution automatically
+python app.py --model meta-llama/Llama-3.1-405B-Instruct --load-in-4bit --device_map auto
+
+# DeepSeek R1 671B on 3× A100 80GB (MoE — active params ~37B per token)
+python app.py --model deepseek-ai/DeepSeek-R1 --load-in-4bit --device_map auto
+```
+
+**Split generation from extraction for very large models**
+
+For models above ~200B, generating the hallucination dataset (1,000 prompts × 10 samples) via standard HuggingFace inference is slow. Use vLLM for fast generation, save responses to disk, then load the model in HuggingFace + hooks for CETT extraction:
+
+```bash
+# Step 1 — fast generation with vLLM (tensor parallelism across GPUs)
+python pipeline/generate_dataset.py \
+    --model meta-llama/Llama-3.1-405B-Instruct \
+    --backend vllm --tensor-parallel-size 4 \
+    --output cache/llama-405b/dataset.parquet
+
+# Step 2 — CETT extraction with HuggingFace hooks (pipeline parallelism)
+python pipeline/extract_cett.py \
+    --model meta-llama/Llama-3.1-405B-Instruct \
+    --load-in-4bit --device_map auto \
+    --dataset cache/llama-405b/dataset.parquet
+```
+
+The Dash GUI handles this split transparently — selecting a vLLM backend for generation is a dropdown option in Step 2.
+
+**MoE models — DeepSeek V3/R1, Mixtral**
+
+Mixture-of-Experts models have multiple expert FFN blocks per layer. A router selects a subset (typically 2–8 out of 64–256 experts) for each token. The CETT approach still applies — hook each expert's `down_proj` — but interpretation changes:
+
+```
+Standard FFN:   layer 12 has one set of neurons → hook once
+MoE layer 12:   64 experts, each with their own neurons
+                Router activates 2 experts per token
+                → hook all 64 experts' down_proj
+                → track which expert fired on which token
+```
+
+An H-Neuron in Expert 3 of Layer 12 only fires when the router selects Expert 3. The pipeline records both the neuron index and the expert index. Suppression targets the specific expert's weights — leaving all other experts untouched, which is an inherent advantage of MoE for surgical editing.
+
+**Disable `torch.compile` for hook compatibility**
+
+Some large models are shipped with `torch.compile` enabled by default for speed. Compiled graphs bypass Python-level hooks. The pipeline automatically detects and disables compilation before registering CETT hooks, then re-enables it after extraction if desired.
+
+**CPU offloading — last resort**
+
+If VRAM is insufficient even with 4-bit quantization, `device_map="auto"` will spill layers to CPU RAM. Inference becomes very slow (~10× slower) but the pipeline still runs correctly. Useful for running a 405B model on 2× A100 80GB (160GB GPU + 300GB CPU RAM) as a slow but zero-cost alternative to renting more GPUs.
 
 ---
 

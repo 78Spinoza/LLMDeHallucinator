@@ -1,9 +1,14 @@
 # ─── Core ML / Interpretability ───────────────────────────────────────────────
-transformer-lens>=2.0.0          # LLM activation extraction + hooks
+transformer-lens>=2.0.0          # LLM activation extraction + hooks (small models / dev)
 torch>=2.1.0                     # PyTorch backend
-transformers>=4.40.0             # HuggingFace model loading
-accelerate>=0.27.0               # Multi-GPU / device management
-bitsandbytes>=0.43.0             # 4-bit / 8-bit quantization
+transformers>=4.40.0             # HuggingFace model loading (all sizes)
+accelerate>=0.27.0               # Multi-GPU device_map / pipeline parallelism
+bitsandbytes>=0.43.0             # 4-bit / 8-bit quantization (NF4 — required for 70B+)
+
+# ─── Large Model Inference (optional — 70B+ dataset generation) ───────────────
+# vllm>=0.4.0                    # Fast tensor-parallel generation for 70B+ models
+#                                # Install separately: pip install vllm
+#                                # Required only for --backend vllm dataset generation
 
 # ─── Datasets & Benchmarks ────────────────────────────────────────────────────
 datasets>=2.18.0                 # TruthfulQA, TriviaQA, HaluEval
