@@ -52,6 +52,47 @@
 
 ---
 
+## Research Background
+
+This project directly builds on and extends:
+
+- **H-Neurons** (Gao et al., Dec 2025) — arXiv:2512.01797
+  Identified that <0.1% of neurons reliably predict hallucination events. Established the CETT metric and L1-probe methodology. Found that H-Neurons originate during pre-training, not alignment.
+
+- **Inference-Time Intervention** (Li et al., 2023)
+  Demonstrated that targeted activation editing at inference time can improve truthfulness.
+
+- **Sparse Autoencoders for Interpretability** (Bricken et al., Anthropic 2023)
+  Showed that sparse, interpretable features can be extracted from LLM activations.
+
+- **Entity Recognition via SAE Latents** (Ferrando et al., ICLR 2025)
+  Found linear directions encoding model self-knowledge about whether it knows a fact.
+
+### Key Hypothesis
+
+> H-Neurons concentrated in layers 8–20 are sufficient for hallucination detection and suppression, with a MMLU accuracy delta below 2% at a 20% suppression factor.
+
+This hypothesis is testable and measurable within the LLMDeHallucinator pipeline — and represents a concrete contribution beyond the original H-Neurons paper, which stopped short of building a production suppression tool.
+
+---
+
+## Citation
+
+If you use LLMDeHallucinator in your research, please cite the H-Neurons paper that motivated it:
+
+```bibtex
+@misc{gao2025hneurons,
+  title={H-Neurons: On the Existence, Impact, and Origin of
+         Hallucination-Associated Neurons in LLMs},
+  author={Cheng Gao et al.},
+  year={2025},
+  eprint={2512.01797},
+  archivePrefix={arXiv}
+}
+```
+
+---
+
 ## Overview
 
 LLMDeHallucinator is an interactive research pipeline built with Python and Plotly Dash that takes an open-source LLM as input and produces a de-hallucinated model as output — along with a full audit report detailing exactly which neurons were modified and by how much.
@@ -270,30 +311,6 @@ Save the edited model as `.safetensors`. Download the PDF audit report. Optional
 
 ---
 
-## Research Background
-
-This project directly builds on and extends:
-
-- **H-Neurons** (Gao et al., Dec 2025) — arXiv:2512.01797  
-  Identified that <0.1% of neurons reliably predict hallucination events. Established the CETT metric and L1-probe methodology. Found that H-Neurons originate during pre-training, not alignment.
-
-- **Inference-Time Intervention** (Li et al., 2023)  
-  Demonstrated that targeted activation editing at inference time can improve truthfulness.
-
-- **Sparse Autoencoders for Interpretability** (Bricken et al., Anthropic 2023)  
-  Showed that sparse, interpretable features can be extracted from LLM activations.
-
-- **Entity Recognition via SAE Latents** (Ferrando et al., ICLR 2025)  
-  Found linear directions encoding model self-knowledge about whether it knows a fact.
-
-### Key Hypothesis
-
-> H-Neurons concentrated in layers 8–20 are sufficient for hallucination detection and suppression, with a MMLU accuracy delta below 2% at a 20% suppression factor.
-
-This hypothesis is testable and measurable within the LLMDeHallucinator pipeline — and represents a concrete contribution beyond the original H-Neurons paper, which stopped short of building a production suppression tool.
-
----
-
 ## Limitations and Known Challenges
 
 **Labeling quality**  
@@ -338,23 +355,6 @@ Contributions welcome. This is an early-stage research project — the most valu
 4. Adding new benchmark datasets
 
 Please open an issue before starting significant work.
-
----
-
-## Citation
-
-If you use LLMDeHallucinator in your research, please cite the H-Neurons paper that motivated it:
-
-```bibtex
-@misc{gao2025hneurons,
-  title={H-Neurons: On the Existence, Impact, and Origin of 
-         Hallucination-Associated Neurons in LLMs},
-  author={Cheng Gao et al.},
-  year={2025},
-  eprint={2512.01797},
-  archivePrefix={arXiv}
-}
-```
 
 ---
 
